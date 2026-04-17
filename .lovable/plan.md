@@ -1,14 +1,26 @@
 
-Update `src/components/HighlightDetail.tsx` so the "Open in..." link prefers the original article URL for article-type sources.
+Add a document summary section to the highlight detail panel.
 
-**Current behavior:** The link uses `highlight.url || readwiseUrl`, where `readwiseUrl` points to the Readwise book review page. `highlight.url` (from Readwise) typically points to the highlight inside Readwise, not the original article.
+**Investigation:**
+- Readwise v2 `/books/` endpoint returns a `summary` field per book (when available, mostly for articles imported via Reader).
+- Currently `supabase/functions/readwise-fetch/index.ts` maps only `title`, `author`, `category`, `source_url`, `cover_image_url` into the `book` payload.
+- `HighlightBook` type in `src/types/highlight.ts` mirrors that shape.
 
 **Plan:**
-1. Use `highlight.book.source_url` as the preferred destination when the category is `articles` (and likely also for `tweets`, `podcasts`, `supplementals`) — i.e. anything that isn't a `books` source where there's no meaningful external URL.
-2. Fall back order:
-   - If `book.source_url` exists and category ≠ `books` → link to `book.source_url`, label **"Open original article"** (or "Open original" for non-articles).
-   - Else if `highlight.url` exists → link to it, label **"Open in Readwise"**.
-   - Else → link to the Readwise book review page, label **"Open in Readwise"**.
-3. Label adapts to category: "Open original article" for `articles`, "Open original" otherwise.
 
-No other files need to change. `source_url` is already on the `HighlightBook` type and populated by `src/lib/readwise.ts`.
+1. **Edge function** (`supabase/functions/readwise-fetch/index.ts`):
+   - Add `summary: string | null` to the `RWBook` interface.
+   - Include `summary: b?.summary ?? null` in the mapped `book` object.
+
+2. **Type** (`src/types/highlight.ts`):
+   - Add `summary: string | null` to `HighlightBook`.
+
+3. **Detail panel** (`src/components/HighlightDetail.tsx`):
+   - Add a new section between the highlight text/note block and the "Connected ideas" section, only rendered when `highlight.book.summary` is present.
+   - Heading: "Document summary" with the summary rendered as muted body text inside a subtle bordered container (matching the existing note/related styling for visual consistency).
+   - Wrap with a `<Separator />` like the other sections.
+
+4. **Cache invalidation:**
+   - The hook caches under `highlight-graph:cache:v2` in `useReadwiseData.ts`. Bump to `v3` so existing users without the `summary` field get a fresh fetch automatically.
+
+No schema changes; no new dependencies.
