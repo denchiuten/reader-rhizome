@@ -192,6 +192,28 @@ export function HighlightGraph({
     return () => window.clearTimeout(timer);
   }, [focusBookId, data.nodes, width, height, onFocusHandled]);
 
+  // Auto-fit zoom to frame both nodes when a connection is selected
+  useEffect(() => {
+    if (!selectedPair) return;
+    const fg = fgRef.current;
+    if (!fg) return;
+    const a = data.nodes.find((n) => n.id === selectedPair.aId);
+    const b = data.nodes.find((n) => n.id === selectedPair.bId);
+    if (!a || !b || a.x == null || a.y == null || b.x == null || b.y == null) return;
+
+    const timer = window.setTimeout(() => {
+      const cx = (a.x! + b.x!) / 2;
+      const cy = (a.y! + b.y!) / 2;
+      const padding = 160;
+      const spanX = Math.max(80, Math.abs(a.x! - b.x!)) + padding;
+      const spanY = Math.max(80, Math.abs(a.y! - b.y!)) + padding;
+      const zoom = Math.min(width / spanX, height / spanY, 4);
+      fg.centerAt(cx, cy, 700);
+      fg.zoom(Math.max(0.6, zoom), 700);
+    }, 50);
+    return () => window.clearTimeout(timer);
+  }, [selectedPair, data.nodes, width, height]);
+
   const wrapperRef = useRef<HTMLDivElement>(null);
 
   // Two-finger trackpad scroll pans; pinch (ctrlKey wheel) keeps zoom.
