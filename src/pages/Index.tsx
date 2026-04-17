@@ -5,6 +5,7 @@ import { Sheet, SheetContent } from "@/components/ui/sheet";
 import { Alert, AlertDescription, AlertTitle } from "@/components/ui/alert";
 import { HighlightGraph } from "@/components/HighlightGraph";
 import { HighlightDetail } from "@/components/HighlightDetail";
+import { CategoryFilter } from "@/components/CategoryFilter";
 import { useReadwiseData } from "@/hooks/useReadwiseData";
 import { useIsMobile } from "@/hooks/use-mobile";
 import { useElementSize } from "@/hooks/useElementSize";
@@ -20,6 +21,8 @@ const Index = () => {
     error,
     fetchedAt,
     refresh,
+    categories,
+    setCategories,
   } = useReadwiseData();
   const isMobile = useIsMobile();
   const containerRef = useRef<HTMLDivElement>(null);
@@ -62,6 +65,13 @@ const Index = () => {
             An interactive network of related ideas from what I’m reading.
           </p>
           <div className="mt-1">{headerStats}</div>
+          <div className="mt-2">
+            <CategoryFilter
+              selected={categories}
+              onChange={setCategories}
+              disabled={loading || connectionsLoading}
+            />
+          </div>
         </div>
         <Button
           variant="outline"
