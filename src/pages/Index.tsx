@@ -56,9 +56,12 @@ const Index = () => {
       <header className="flex flex-shrink-0 items-center justify-between gap-3 border-b border-border bg-card/50 px-4 py-3 backdrop-blur sm:px-6">
         <div className="min-w-0">
           <h1 className="text-base font-semibold tracking-tight text-foreground sm:text-lg">
-            Highlight Graph
+            Dennis’ Readwise Highlight Graph
           </h1>
-          {headerStats}
+          <p className="text-xs text-muted-foreground sm:text-sm">
+            An interactive network of related ideas from what I’m reading.
+          </p>
+          <div className="mt-1">{headerStats}</div>
         </div>
         <Button
           variant="outline"
