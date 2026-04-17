@@ -156,12 +156,12 @@ const Index = () => {
                 focusBookId={focusBookId}
                 onFocusHandled={() => setFocusBookId(null)}
               />
-              {!isMobile && (
-                <GraphLegend
-                  highlights={highlights}
-                  onFocusSource={(id) => setFocusBookId(id)}
-                />
-              )}
+              <GraphLegend
+                highlights={highlights}
+                onFocusSource={(id) => setFocusBookId(id)}
+                defaultOpen={!isMobile}
+                compact={isMobile}
+              />
             </>
           ) : null}
 
