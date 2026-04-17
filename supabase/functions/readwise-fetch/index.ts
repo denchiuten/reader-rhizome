@@ -6,7 +6,7 @@ const corsHeaders = {
 
 const READWISE_BASE = "https://readwise.io/api/v2";
 const READER_BASE = "https://readwise.io/api/v3";
-const TARGET = 200;
+const TARGET = 500;
 const MAX_HIGHLIGHT_PAGES = 10;
 
 interface RWHighlight {
@@ -115,25 +115,15 @@ Deno.serve(async (req) => {
     );
   }
 
-  let categories: string[] | undefined;
-  let tags: string[] | undefined;
   let listTags = false;
   try {
     if (req.method === "POST") {
       const body = await req.json().catch(() => ({}));
       if (body?.listTags === true) listTags = true;
-      if (Array.isArray(body?.categories) && body.categories.length > 0) {
-        categories = body.categories.filter((c: unknown): c is string => typeof c === "string");
-      }
-      if (Array.isArray(body?.tags) && body.tags.length > 0) {
-        tags = body.tags.filter((t: unknown): t is string => typeof t === "string");
-      }
     }
   } catch {
     // ignore
   }
-  const categorySet = categories && categories.length > 0 ? new Set(categories) : null;
-  const tagSet = tags && tags.length > 0 ? new Set(tags) : null;
 
   try {
     const booksById = await fetchAllBooks(token);
@@ -157,14 +147,6 @@ Deno.serve(async (req) => {
       const data = await rw(`/highlights/?page_size=100&page=${page}`, token);
       const results: RWHighlight[] = data.results || [];
       for (const h of results) {
-        const b = booksById[h.book_id];
-        if (categorySet) {
-          if (!b?.category || !categorySet.has(b.category)) continue;
-        }
-        if (tagSet) {
-          const bookTags = b?.tags || [];
-          if (!bookTags.some((t) => tagSet.has(t))) continue;
-        }
         collected.push(h);
         if (collected.length >= TARGET) break;
       }
