@@ -1,4 +1,4 @@
-import { useMemo, useRef, useState } from "react";
+import { useEffect, useMemo, useRef, useState } from "react";
 import { AlertTriangle, Info, Loader2, RefreshCw } from "lucide-react";
 import { Button } from "@/components/ui/button";
 import { Sheet, SheetContent } from "@/components/ui/sheet";
@@ -44,6 +44,18 @@ const Index = () => {
   const selectedHighlight = selection?.kind === "highlight" ? selection.highlight : null;
   const selectHighlight = (h: Highlight | null) =>
     setSelection(h ? { kind: "highlight", highlight: h } : null);
+
+  // Esc clears any selection / connection view
+  useEffect(() => {
+    const onKey = (e: KeyboardEvent) => {
+      if (e.key === "Escape" && (selection !== null || focusBookId !== null)) {
+        setSelection(null);
+        setFocusBookId(null);
+      }
+    };
+    window.addEventListener("keydown", onKey);
+    return () => window.removeEventListener("keydown", onKey);
+  }, [selection, focusBookId]);
 
   const sourceCount = useMemo(
     () => new Set(highlights.map((h) => h.book.id)).size,
