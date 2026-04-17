@@ -127,32 +127,35 @@ export function HighlightGraph({
     link?.distance((l: GraphLink) => (l.kind === "cross-source" ? 120 : 30));
   }, [data]);
 
-  // Two-finger trackpad scroll pans; pinch (ctrlKey wheel) zooms.
+  const wrapperRef = useRef<HTMLDivElement>(null);
+
+  // Two-finger trackpad scroll pans; pinch (ctrlKey wheel) keeps zoom.
   useEffect(() => {
-    const fg = fgRef.current;
-    if (!fg) return;
-    // react-force-graph exposes the underlying canvas container
-    const container = (fg as unknown as { renderer?: () => { domElement: HTMLCanvasElement } }).renderer?.().domElement?.parentElement;
-    if (!container) return;
+    const wrapper = wrapperRef.current;
+    if (!wrapper) return;
 
     const handleWheel = (e: WheelEvent) => {
-      // Pinch-to-zoom on trackpads sets ctrlKey; let the library handle that.
+      const fg = fgRef.current;
+      if (!fg) return;
+      // ctrlKey wheel = pinch-to-zoom on trackpads → let the library handle it
       if (e.ctrlKey) return;
       e.preventDefault();
       e.stopPropagation();
+      e.stopImmediatePropagation();
       const currentZoom = fg.zoom();
-      // Convert pixel delta to graph-space delta
       const dx = e.deltaX / currentZoom;
       const dy = e.deltaY / currentZoom;
       const center = fg.centerAt();
       fg.centerAt((center.x ?? 0) + dx, (center.y ?? 0) + dy, 0);
     };
 
-    container.addEventListener("wheel", handleWheel, { passive: false, capture: true });
-    return () => container.removeEventListener("wheel", handleWheel, { capture: true } as EventListenerOptions);
-  }, [data]);
+    // Capture phase on the wrapper intercepts before the canvas's own listener fires
+    wrapper.addEventListener("wheel", handleWheel, { passive: false, capture: true });
+    return () => wrapper.removeEventListener("wheel", handleWheel, true);
+  }, []);
 
   return (
+    <div ref={wrapperRef} style={{ width, height }}>
     <ForceGraph2D
       ref={fgRef as never}
       graphData={data}
@@ -282,5 +285,6 @@ export function HighlightGraph({
         ctx.fill();
       }}
     />
+    </div>
   );
 }
