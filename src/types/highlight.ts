@@ -6,6 +6,7 @@ export interface HighlightBook {
   source_url: string | null;
   cover_image_url: string | null;
   summary: string | null;
+  tags: string[];
 }
 
 export interface Highlight {

@@ -4,7 +4,7 @@ import { findCrossConnectionsLocal } from "@/lib/connections";
 import type { CategoryKey } from "@/lib/categories";
 import type { CrossConnection, Highlight } from "@/types/highlight";
 
-const CACHE_PREFIX = "highlight-graph:cache:v5";
+const CACHE_PREFIX = "highlight-graph:cache:v6";
 const CACHE_TTL = 1000 * 60 * 60 * 6; // 6h
 
 interface CachedData {
@@ -22,11 +22,13 @@ interface State {
   error: string | null;
   fetchedAt: number | null;
   categories: CategoryKey[];
+  tags: string[];
 }
 
-function cacheKey(categories: CategoryKey[]): string {
-  const suffix = categories.length === 0 ? "all" : [...categories].sort().join(",");
-  return `${CACHE_PREFIX}:${suffix}`;
+function cacheKey(categories: CategoryKey[], tags: string[]): string {
+  const cat = categories.length === 0 ? "all" : [...categories].sort().join(",");
+  const tg = tags.length === 0 ? "all" : [...tags].sort().join(",");
+  return `${CACHE_PREFIX}:${cat}|${tg}`;
 }
 
 export function useReadwiseData() {
@@ -39,95 +41,110 @@ export function useReadwiseData() {
     error: null,
     fetchedAt: null,
     categories: [],
+    tags: [],
   });
 
   const reqIdRef = useRef(0);
 
-  const load = useCallback(async (categories: CategoryKey[], force = false) => {
-    const reqId = ++reqIdRef.current;
-    setState((s) => ({ ...s, loading: true, error: null, categories }));
+  const load = useCallback(
+    async (categories: CategoryKey[], tags: string[], force = false) => {
+      const reqId = ++reqIdRef.current;
+      setState((s) => ({ ...s, loading: true, error: null, categories, tags }));
 
-    if (!force) {
-      try {
-        const raw = localStorage.getItem(cacheKey(categories));
-        if (raw) {
-          const cached: CachedData = JSON.parse(raw);
-          if (Date.now() - cached.fetchedAt < CACHE_TTL) {
-            if (reqId !== reqIdRef.current) return;
-            setState({
-              highlights: cached.highlights,
-              connections: cached.connections,
-              loading: false,
-              connectionsLoading: false,
-              progress: { done: cached.highlights.length, total: cached.highlights.length },
-              error: null,
-              fetchedAt: cached.fetchedAt,
-              categories,
-            });
-            return;
+      if (!force) {
+        try {
+          const raw = localStorage.getItem(cacheKey(categories, tags));
+          if (raw) {
+            const cached: CachedData = JSON.parse(raw);
+            if (Date.now() - cached.fetchedAt < CACHE_TTL) {
+              if (reqId !== reqIdRef.current) return;
+              setState({
+                highlights: cached.highlights,
+                connections: cached.connections,
+                loading: false,
+                connectionsLoading: false,
+                progress: { done: cached.highlights.length, total: cached.highlights.length },
+                error: null,
+                fetchedAt: cached.fetchedAt,
+                categories,
+                tags,
+              });
+              return;
+            }
           }
+        } catch {
+          // ignore
         }
-      } catch {
-        // ignore
       }
-    }
 
-    try {
-      const highlights = await fetchHighlights(categories);
-      if (reqId !== reqIdRef.current) return;
-      setState((s) => ({
-        ...s,
-        highlights,
-        loading: false,
-        connectionsLoading: true,
-        progress: { done: 0, total: highlights.length },
-        fetchedAt: Date.now(),
-      }));
-
-      await new Promise((r) => setTimeout(r, 30));
-      if (reqId !== reqIdRef.current) return;
-      const connections = findCrossConnectionsLocal(highlights, {
-        minScore: 0.08,
-        maxEdges: 60,
-        perNode: 2,
-      });
-
-      const fetchedAt = Date.now();
-      if (reqId !== reqIdRef.current) return;
-      setState((s) => ({
-        ...s,
-        connections,
-        connectionsLoading: false,
-        progress: { done: highlights.length, total: highlights.length },
-        fetchedAt,
-      }));
       try {
-        localStorage.setItem(
-          cacheKey(categories),
-          JSON.stringify({ highlights, connections, fetchedAt } as CachedData),
-        );
-      } catch {
-        // ignore quota
+        const highlights = await fetchHighlights(categories, tags);
+        if (reqId !== reqIdRef.current) return;
+        setState((s) => ({
+          ...s,
+          highlights,
+          loading: false,
+          connectionsLoading: true,
+          progress: { done: 0, total: highlights.length },
+          fetchedAt: Date.now(),
+        }));
+
+        await new Promise((r) => setTimeout(r, 30));
+        if (reqId !== reqIdRef.current) return;
+        const connections = findCrossConnectionsLocal(highlights, {
+          minScore: 0.08,
+          maxEdges: 60,
+          perNode: 2,
+        });
+
+        const fetchedAt = Date.now();
+        if (reqId !== reqIdRef.current) return;
+        setState((s) => ({
+          ...s,
+          connections,
+          connectionsLoading: false,
+          progress: { done: highlights.length, total: highlights.length },
+          fetchedAt,
+        }));
+        try {
+          localStorage.setItem(
+            cacheKey(categories, tags),
+            JSON.stringify({ highlights, connections, fetchedAt } as CachedData),
+          );
+        } catch {
+          // ignore quota
+        }
+      } catch (err) {
+        if (reqId !== reqIdRef.current) return;
+        const msg = err instanceof Error ? err.message : "Failed to fetch highlights";
+        setState((s) => ({ ...s, loading: false, connectionsLoading: false, error: msg }));
       }
-    } catch (err) {
-      if (reqId !== reqIdRef.current) return;
-      const msg = err instanceof Error ? err.message : "Failed to fetch highlights";
-      setState((s) => ({ ...s, loading: false, connectionsLoading: false, error: msg }));
-    }
-  }, []);
+    },
+    [],
+  );
 
   useEffect(() => {
-    load([], false);
+    load([], [], false);
   }, [load]);
 
   const setCategories = useCallback(
     (cats: CategoryKey[]) => {
-      load(cats, false);
+      load(cats, state.tags, false);
     },
-    [load],
+    [load, state.tags],
   );
 
-  const refresh = useCallback(() => load(state.categories, true), [load, state.categories]);
+  const setTags = useCallback(
+    (tags: string[]) => {
+      load(state.categories, tags, false);
+    },
+    [load, state.categories],
+  );
 
-  return { ...state, refresh, setCategories };
+  const refresh = useCallback(
+    () => load(state.categories, state.tags, true),
+    [load, state.categories, state.tags],
+  );
+
+  return { ...state, refresh, setCategories, setTags };
 }
