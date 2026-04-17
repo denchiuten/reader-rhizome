@@ -225,9 +225,7 @@ export function HighlightGraph({
 
         // One label per cluster: only the chosen "label node" for each book gets the title.
         // Always show on hover/selection regardless.
-        const isLabelNode = data.labelNodeIds.has(n.id);
-        const isFocused = hover === n.id || selectedId === n.id;
-        if (isLabelNode || isFocused) {
+        if (data.labelNodeIds.has(n.id)) {
           const fontSize = Math.max(11, 13 / globalScale);
           ctx.font = `600 ${fontSize}px Inter, system-ui, sans-serif`;
 
