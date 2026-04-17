@@ -1,9 +1,56 @@
-import { ExternalLink, X } from "lucide-react";
+import { useEffect, useLayoutEffect, useRef, useState } from "react";
+import { ChevronDown, ChevronUp, ExternalLink, X } from "lucide-react";
 import { Button } from "@/components/ui/button";
 import { ScrollArea } from "@/components/ui/scroll-area";
 import { Separator } from "@/components/ui/separator";
 import { Badge } from "@/components/ui/badge";
 import type { CrossConnection, Highlight } from "@/types/highlight";
+
+function CollapsibleSummary({ summary }: { summary: string }) {
+  const [expanded, setExpanded] = useState(false);
+  const [overflows, setOverflows] = useState(false);
+  const ref = useRef<HTMLParagraphElement>(null);
+
+  useEffect(() => {
+    setExpanded(false);
+  }, [summary]);
+
+  useLayoutEffect(() => {
+    const el = ref.current;
+    if (!el) return;
+    setOverflows(el.scrollHeight - el.clientHeight > 1);
+  }, [summary]);
+
+  return (
+    <div className="rounded-md border border-border bg-secondary/40 p-3">
+      <p
+        ref={ref}
+        className={`whitespace-pre-wrap text-sm leading-relaxed text-foreground/80 ${
+          expanded ? "" : "line-clamp-4"
+        }`}
+      >
+        {summary}
+      </p>
+      {overflows && (
+        <button
+          type="button"
+          onClick={() => setExpanded((v) => !v)}
+          className="mt-2 inline-flex items-center gap-1 text-xs font-medium text-primary hover:underline"
+        >
+          {expanded ? (
+            <>
+              Show less <ChevronUp className="h-3 w-3" />
+            </>
+          ) : (
+            <>
+              Show more <ChevronDown className="h-3 w-3" />
+            </>
+          )}
+        </button>
+      )}
+    </div>
+  );
+}
 
 interface Props {
   highlight: Highlight;
@@ -118,11 +165,7 @@ export function HighlightDetail({
                 <h3 className="mb-2 text-sm font-semibold text-foreground">
                   Document summary
                 </h3>
-                <div className="rounded-md border border-border bg-secondary/40 p-3">
-                  <p className="whitespace-pre-wrap text-sm leading-relaxed text-foreground/80">
-                    {highlight.book.summary}
-                  </p>
-                </div>
+                <CollapsibleSummary summary={highlight.book.summary} />
               </section>
             </>
           )}
