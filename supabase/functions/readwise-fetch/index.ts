@@ -102,15 +102,42 @@ async function fetchAllBooks(token: string): Promise<Record<number, CachedBook>>
   return booksById;
 }
 
+// Basic in-memory rate limiting (per warm instance).
+const RATE_LIMIT_WINDOW_MS = 60_000;
+const RATE_LIMIT_MAX = 20;
+const rateBuckets = new Map<string, number[]>();
+function isRateLimited(key: string): boolean {
+  const now = Date.now();
+  const arr = (rateBuckets.get(key) || []).filter((t) => now - t < RATE_LIMIT_WINDOW_MS);
+  if (arr.length >= RATE_LIMIT_MAX) {
+    rateBuckets.set(key, arr);
+    return true;
+  }
+  arr.push(now);
+  rateBuckets.set(key, arr);
+  return false;
+}
+
 Deno.serve(async (req) => {
   if (req.method === "OPTIONS") {
     return new Response("ok", { headers: corsHeaders });
   }
 
+  const ip =
+    req.headers.get("x-forwarded-for")?.split(",")[0].trim() ||
+    req.headers.get("cf-connecting-ip") ||
+    "unknown";
+  if (isRateLimited(ip)) {
+    return new Response(JSON.stringify({ error: "Too many requests" }), {
+      status: 429,
+      headers: { ...corsHeaders, "Content-Type": "application/json", "Retry-After": "60" },
+    });
+  }
+
   const token = Deno.env.get("READWISE_ACCESS_TOKEN");
   if (!token) {
     return new Response(
-      JSON.stringify({ error: "READWISE_ACCESS_TOKEN is not configured" }),
+      JSON.stringify({ error: "Service not configured" }),
       { status: 500, headers: { ...corsHeaders, "Content-Type": "application/json" } },
     );
   }
@@ -136,7 +163,11 @@ Deno.serve(async (req) => {
       const list = [...tagSetAll].sort((a, b) => a.localeCompare(b));
       return new Response(JSON.stringify({ tags: list }), {
         status: 200,
-        headers: { ...corsHeaders, "Content-Type": "application/json" },
+        headers: {
+          ...corsHeaders,
+          "Content-Type": "application/json",
+          "Cache-Control": "public, max-age=3600",
+        },
       });
     }
 
@@ -191,12 +222,16 @@ Deno.serve(async (req) => {
 
     return new Response(JSON.stringify({ highlights: result }), {
       status: 200,
-      headers: { ...corsHeaders, "Content-Type": "application/json" },
+      headers: {
+        ...corsHeaders,
+        "Content-Type": "application/json",
+        "Cache-Control": "public, max-age=3600",
+      },
     });
   } catch (err) {
     const msg = err instanceof Error ? err.message : "Unknown error";
     console.error("readwise-fetch error:", msg);
-    return new Response(JSON.stringify({ error: msg }), {
+    return new Response(JSON.stringify({ error: "Failed to fetch highlights" }), {
       status: 500,
       headers: { ...corsHeaders, "Content-Type": "application/json" },
     });
