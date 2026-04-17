@@ -1,8 +1,9 @@
 import { useCallback, useEffect, useState } from "react";
-import { fetchHighlights, findCrossConnections } from "@/lib/readwise";
+import { fetchHighlights } from "@/lib/readwise";
+import { findCrossConnectionsLocal } from "@/lib/connections";
 import type { CrossConnection, Highlight } from "@/types/highlight";
 
-const CACHE_KEY = "highlight-graph:cache:v1";
+const CACHE_KEY = "highlight-graph:cache:v2";
 const CACHE_TTL = 1000 * 60 * 60 * 6; // 6h
 
 interface CachedData {
@@ -35,7 +36,6 @@ export function useReadwiseData() {
   const load = useCallback(async (force = false) => {
     setState((s) => ({ ...s, loading: true, error: null }));
 
-    // Try cache
     if (!force) {
       try {
         const raw = localStorage.getItem(CACHE_KEY);
@@ -70,8 +70,12 @@ export function useReadwiseData() {
         fetchedAt: Date.now(),
       }));
 
-      const connections = await findCrossConnections(highlights, (done, total) => {
-        setState((s) => ({ ...s, progress: { done, total } }));
+      // Local similarity — fast, runs synchronously but yield to UI first
+      await new Promise((r) => setTimeout(r, 30));
+      const connections = findCrossConnectionsLocal(highlights, {
+        minScore: 0.08,
+        maxEdges: 60,
+        perNode: 2,
       });
 
       const fetchedAt = Date.now();
@@ -79,6 +83,7 @@ export function useReadwiseData() {
         ...s,
         connections,
         connectionsLoading: false,
+        progress: { done: highlights.length, total: highlights.length },
         fetchedAt,
       }));
       try {
