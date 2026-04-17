@@ -102,9 +102,32 @@ export function HighlightGraph({
 
     let workingHighlights = highlights;
     if (simplified && highlights.length > maxNodes) {
-      workingHighlights = [...highlights]
-        .sort((a, b) => (degree.get(b.id) || 0) - (degree.get(a.id) || 0))
-        .slice(0, maxNodes);
+      // Round-robin across books so every source is represented.
+      const groups = new Map<number, Highlight[]>();
+      for (const h of highlights) {
+        if (!groups.has(h.book.id)) groups.set(h.book.id, []);
+        groups.get(h.book.id)!.push(h);
+      }
+      for (const arr of groups.values()) {
+        arr.sort((a, b) => (degree.get(b.id) || 0) - (degree.get(a.id) || 0));
+      }
+      const bookOrder = Array.from(groups.keys());
+      const picked: Highlight[] = [];
+      let pass = 0;
+      while (picked.length < maxNodes) {
+        let addedThisPass = false;
+        for (const bId of bookOrder) {
+          const arr = groups.get(bId)!;
+          if (pass < arr.length) {
+            picked.push(arr[pass]);
+            addedThisPass = true;
+            if (picked.length >= maxNodes) break;
+          }
+        }
+        if (!addedThisPass) break;
+        pass++;
+      }
+      workingHighlights = picked;
     }
     const nodeIds = new Set(workingHighlights.map((h) => h.id));
 
