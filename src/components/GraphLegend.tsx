@@ -6,10 +6,17 @@ import type { Highlight } from "@/types/highlight";
 interface Props {
   highlights: Highlight[];
   onFocusSource?: (bookId: number) => void;
+  defaultOpen?: boolean;
+  compact?: boolean;
 }
 
-export function GraphLegend({ highlights, onFocusSource }: Props) {
-  const [open, setOpen] = useState(true);
+export function GraphLegend({
+  highlights,
+  onFocusSource,
+  defaultOpen = true,
+  compact = false,
+}: Props) {
+  const [open, setOpen] = useState(defaultOpen);
 
   const sources = useMemo(() => {
     const seen = new Map<
@@ -34,7 +41,7 @@ export function GraphLegend({ highlights, onFocusSource }: Props) {
   }, [highlights]);
 
   return (
-    <div className="pointer-events-auto absolute top-3 right-3 w-56 rounded-md border border-border bg-card/85 text-xs shadow-sm backdrop-blur">
+    <div className={`pointer-events-auto absolute top-3 right-3 ${compact ? "w-44" : "w-56"} rounded-md border border-border bg-card/85 text-xs shadow-sm backdrop-blur`}>
       <button
         type="button"
         onClick={() => setOpen((v) => !v)}
@@ -86,7 +93,7 @@ export function GraphLegend({ highlights, onFocusSource }: Props) {
           <div className="mb-1 text-[10px] uppercase tracking-wider text-muted-foreground/70">
             Sources ({sources.length})
           </div>
-          <ul className="max-h-48 space-y-1 overflow-y-auto pr-1">
+          <ul className={`${compact ? "max-h-32" : "max-h-48"} space-y-1 overflow-y-auto pr-1`}>
             {sources.map((s) => {
               const content = (
                 <>
