@@ -1,26 +1,33 @@
 
-Add a document summary section to the highlight detail panel.
+Add a category filter bar that re-fetches highlights filtered by selected categories.
 
-**Investigation:**
-- Readwise v2 `/books/` endpoint returns a `summary` field per book (when available, mostly for articles imported via Reader).
-- Currently `supabase/functions/readwise-fetch/index.ts` maps only `title`, `author`, `category`, `source_url`, `cover_image_url` into the `book` payload.
-- `HighlightBook` type in `src/types/highlight.ts` mirrors that shape.
+**Approach:** Readwise's `/highlights/` endpoint doesn't natively filter by category — category lives on books. So filtering requires fetching highlights, then keeping pulling pages until we have 200 highlights whose book.category is in the selected set (with a safety cap on pages).
 
-**Plan:**
+**Changes:**
 
 1. **Edge function** (`supabase/functions/readwise-fetch/index.ts`):
-   - Add `summary: string | null` to the `RWBook` interface.
-   - Include `summary: b?.summary ?? null` in the mapped `book` object.
+   - Accept POST body `{ categories?: string[] }`. Empty/undefined → no filter (current behavior).
+   - Fetch highlights page by page, building up a book cache, filtering each page's highlights by `book.category ∈ categories` until we hit 200 or exhaust ~10 pages (safety cap).
+   - To avoid N book lookups, lazily fetch books needed: collect book_ids per page, fetch missing ones via the existing books-list pagination strategy (kept as-is) but only after we've gathered candidate highlights.
+   - Simpler: keep existing book-fetching logic, but loop highlights pages 1..N (cap 10), filter post-hoc.
 
-2. **Type** (`src/types/highlight.ts`):
-   - Add `summary: string | null` to `HighlightBook`.
+2. **`src/lib/readwise.ts`**:
+   - `fetchHighlights(categories?: string[])` passes them to the edge function body.
 
-3. **Detail panel** (`src/components/HighlightDetail.tsx`):
-   - Add a new section between the highlight text/note block and the "Connected ideas" section, only rendered when `highlight.book.summary` is present.
-   - Heading: "Document summary" with the summary rendered as muted body text inside a subtle bordered container (matching the existing note/related styling for visual consistency).
-   - Wrap with a `<Separator />` like the other sections.
+3. **`src/hooks/useReadwiseData.ts`**:
+   - Track `categories: string[]` in state. Cache key includes a stable hash of selected categories so each filter combo caches independently.
+   - Expose `setCategories(cats: string[])` which triggers a fresh load (force=true, bypassing cache, but still writing to a cache entry keyed by that filter).
+   - On change, immediately load.
 
-4. **Cache invalidation:**
-   - The hook caches under `highlight-graph:cache:v2` in `useReadwiseData.ts`. Bump to `v3` so existing users without the `summary` field get a fresh fetch automatically.
+4. **New component** `src/components/CategoryFilter.tsx`:
+   - Fixed list of toggleable categories: `books`, `articles`, `tweets`, `podcasts`, `supplementals`. Use the same icons from `HighlightDetail`. Lucide icons reused via a small `categoryIcon()` helper extracted to a shared `src/lib/categories.ts` (icon + label map).
+   - Toggle buttons styled as small pill `Toggle` components (use existing `@/components/ui/toggle`). Empty selection = "All".
+   - Disabled while loading.
 
-No schema changes; no new dependencies.
+5. **`src/pages/Index.tsx`**:
+   - Render `<CategoryFilter selected={categories} onChange={setCategories} disabled={loading || connectionsLoading} />` in the header, beneath the stats line (or aligned right of stats on desktop).
+   - Wire up the new hook returns.
+
+6. **Refactor:** Move category icon mapping into `src/lib/categories.ts` so HighlightDetail and CategoryFilter share one source of truth (avoids duplication — addresses the "perfect architecture" guideline).
+
+No schema/database changes; no new dependencies (lucide + existing toggle component cover it).
