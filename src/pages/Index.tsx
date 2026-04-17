@@ -98,7 +98,7 @@ const Index = () => {
             </Popover>
           </div>
           <p className="text-xs text-muted-foreground sm:text-sm">
-            Each node is a highlight, coloured by source; lines connect highlights with related ideas. Click a node to read the highlight.
+            Each node is a highlight, coloured by source; lines connect highlights with related ideas. Click a node to read the highlight, or click a line to see how two ideas connect.
           </p>
           <div className="mt-1">{headerStats}</div>
           <div className="mt-2 flex flex-wrap items-center gap-2">
