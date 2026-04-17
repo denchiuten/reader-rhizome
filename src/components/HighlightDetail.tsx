@@ -1,5 +1,5 @@
 import { useEffect, useLayoutEffect, useRef, useState } from "react";
-import { ChevronDown, ChevronUp, ExternalLink, X } from "lucide-react";
+import { BookOpen, ChevronDown, ChevronUp, ExternalLink, FileText, Headphones, Highlighter, Twitter, X } from "lucide-react";
 import { Button } from "@/components/ui/button";
 import { ScrollArea } from "@/components/ui/scroll-area";
 import { Separator } from "@/components/ui/separator";
