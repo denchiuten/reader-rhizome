@@ -1,4 +1,4 @@
-import { useEffect, useMemo, useRef } from "react";
+import { useEffect, useMemo, useRef, useState } from "react";
 import ForceGraph2D, { type ForceGraphMethods } from "react-force-graph-2d";
 import type { CrossConnection, GraphData, GraphLink, GraphNode, Highlight } from "@/types/highlight";
 import { CROSS_LINK_COLOR, colorForBook } from "@/lib/colors";
@@ -30,6 +30,14 @@ export function HighlightGraph({
 }: Props) {
   const fgRef = useRef<ForceGraphMethods | undefined>(undefined);
   const hoverRef = useRef<number | null>(null);
+  const [hoveredLink, setHoveredLink] = useState<GraphLink | null>(null);
+  const [mousePos, setMousePos] = useState<{ x: number; y: number } | null>(null);
+
+  const titleById = useMemo(() => {
+    const m = new Map<number, string>();
+    for (const h of highlights) m.set(h.id, h.book.title);
+    return m;
+  }, [highlights]);
 
   const data: GraphData = useMemo(() => {
     const allBookIds = Array.from(new Set(highlights.map((h) => h.book.id)));
@@ -61,6 +69,11 @@ export function HighlightGraph({
       target: c.relatedId,
       kind: "cross-source",
       color: CROSS_LINK_COLOR,
+      snippet: c.snippet,
+      score: c.score,
+      sharedTerms: c.sharedTerms,
+      sourceTitle: titleById.get(c.highlightId),
+      targetTitle: titleById.get(c.relatedId),
     }));
 
     // Connection counts for sizing & filtering
@@ -105,7 +118,7 @@ export function HighlightGraph({
     }
 
     return { nodes, links, labelNodeIds };
-  }, [highlights, connections, simplified, maxNodes]);
+  }, [highlights, connections, simplified, maxNodes, titleById]);
 
   // Build neighbor map for hover dimming
   const neighbors = useMemo(() => {
@@ -186,7 +199,20 @@ export function HighlightGraph({
 
     // Capture phase on the wrapper intercepts before the canvas's own listener fires
     wrapper.addEventListener("wheel", handleWheel, { passive: false, capture: true });
-    return () => wrapper.removeEventListener("wheel", handleWheel, true);
+
+    const handleMove = (e: MouseEvent) => {
+      const rect = wrapper.getBoundingClientRect();
+      setMousePos({ x: e.clientX - rect.left, y: e.clientY - rect.top });
+    };
+    const handleLeave = () => setMousePos(null);
+    wrapper.addEventListener("mousemove", handleMove);
+    wrapper.addEventListener("mouseleave", handleLeave);
+
+    return () => {
+      wrapper.removeEventListener("wheel", handleWheel, true);
+      wrapper.removeEventListener("mousemove", handleMove);
+      wrapper.removeEventListener("mouseleave", handleLeave);
+    };
   }, []);
 
   return (
@@ -212,9 +238,19 @@ export function HighlightGraph({
         hoverRef.current = node ? (node as unknown as GraphNode).id : null;
       }}
       onBackgroundClick={() => onSelect(null)}
-      linkWidth={(l) => ((l as GraphLink).kind === "cross-source" ? 1.5 : 0.5)}
+      onLinkHover={(link) => {
+        const l = link as GraphLink | null;
+        setHoveredLink(l && l.kind === "cross-source" ? l : null);
+      }}
+      linkWidth={(l) => {
+        const link = l as GraphLink;
+        const isHovered = hoveredLink === link;
+        if (link.kind === "cross-source") return isHovered ? 3 : 1.5;
+        return 0.5;
+      }}
       linkColor={(l) => {
         const link = l as GraphLink;
+        if (hoveredLink === link) return link.color;
         const hover = hoverRef.current;
         const sel = selectedId;
         const focus = hover ?? sel;
@@ -319,6 +355,57 @@ export function HighlightGraph({
         ctx.fill();
       }}
     />
+    {!simplified && hoveredLink && mousePos && (() => {
+      const tooltipWidth = 280;
+      const tooltipMaxHeight = 200;
+      const offset = 14;
+      let left = mousePos.x + offset;
+      let top = mousePos.y + offset;
+      if (left + tooltipWidth > width) left = mousePos.x - tooltipWidth - offset;
+      if (top + tooltipMaxHeight > height) top = mousePos.y - tooltipMaxHeight - offset;
+      left = Math.max(8, left);
+      top = Math.max(8, top);
+      const pct = hoveredLink.score != null ? Math.round(hoveredLink.score * 100) : null;
+      return (
+        <div
+          className="pointer-events-none absolute z-50 rounded-md border bg-popover text-popover-foreground shadow-md p-3 text-xs animate-in fade-in-0 zoom-in-95"
+          style={{ left, top, width: tooltipWidth }}
+        >
+          <div className="flex items-center justify-between mb-2">
+            <span className="font-semibold uppercase tracking-wide text-[10px] text-muted-foreground">
+              Connected idea
+            </span>
+            {pct != null && (
+              <span className="text-[10px] text-muted-foreground tabular-nums">
+                {pct}% similar
+              </span>
+            )}
+          </div>
+          {hoveredLink.sharedTerms && hoveredLink.sharedTerms.length > 0 && (
+            <div className="flex flex-wrap gap-1 mb-2">
+              {hoveredLink.sharedTerms.map((term) => (
+                <span
+                  key={term}
+                  className="inline-flex items-center rounded-full border border-border/60 bg-muted/40 px-1.5 py-0.5 text-[10px] text-foreground/80"
+                >
+                  {term}
+                </span>
+              ))}
+            </div>
+          )}
+          {hoveredLink.snippet && (
+            <p className="italic text-foreground/90 leading-snug line-clamp-4 mb-2">
+              "{hoveredLink.snippet}"
+            </p>
+          )}
+          {(hoveredLink.sourceTitle || hoveredLink.targetTitle) && (
+            <p className="text-[10px] text-muted-foreground truncate">
+              {hoveredLink.sourceTitle ?? "?"} ↔ {hoveredLink.targetTitle ?? "?"}
+            </p>
+          )}
+        </div>
+      );
+    })()}
     </div>
   );
 }

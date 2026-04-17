@@ -37,6 +37,11 @@ export interface GraphLink {
   target: number | GraphNode;
   kind: "same-source" | "cross-source";
   color: string;
+  snippet?: string;
+  score?: number;
+  sharedTerms?: string[];
+  sourceTitle?: string;
+  targetTitle?: string;
 }
 
 export interface GraphData {
@@ -49,4 +54,6 @@ export interface CrossConnection {
   highlightId: number;
   relatedId: number;
   snippet: string;
+  score?: number;
+  sharedTerms?: string[];
 }
