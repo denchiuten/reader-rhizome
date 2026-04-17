@@ -14,7 +14,33 @@ export type Database = {
   }
   public: {
     Tables: {
-      [_ in never]: never
+      highlight_embeddings: {
+        Row: {
+          created_at: string
+          embedding: string
+          highlight_id: number
+          model: string
+          text_hash: string
+          updated_at: string
+        }
+        Insert: {
+          created_at?: string
+          embedding: string
+          highlight_id: number
+          model?: string
+          text_hash: string
+          updated_at?: string
+        }
+        Update: {
+          created_at?: string
+          embedding?: string
+          highlight_id?: number
+          model?: string
+          text_hash?: string
+          updated_at?: string
+        }
+        Relationships: []
+      }
     }
     Views: {
       [_ in never]: never
