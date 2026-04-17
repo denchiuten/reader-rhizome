@@ -285,5 +285,6 @@ export function HighlightGraph({
         ctx.fill();
       }}
     />
+    </div>
   );
 }
