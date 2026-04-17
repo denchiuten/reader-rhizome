@@ -1,24 +1,77 @@
 
-## Problem
-On mobile portrait, `useIsMobile()` returns true (viewport < 768px) so the graph runs in `simplified` mode with `maxNodes=60`. The current node-trimming picks the 60 highest-degree nodes, which all tend to belong to one dense source — so the user sees a single big cluster from one book. In landscape, viewport ≥ 768px, `isMobile` flips to false, `maxNodes=999`, full graph renders → all clusters visible.
+## Goal
+Add an AI-generated explanation of a selected connection, shown in the existing connection panel when a user clicks a line.
 
-## Fix
-Change the mobile node-selection strategy in `HighlightGraph.tsx` so the trimmed set is **representative across all sources**, not dominated by the densest book. Specifically: round-robin across books, picking each book's highest-degree nodes in turn until we hit `maxNodes`. This guarantees every source contributes at least one node (up to the cap), so all clusters appear on mobile portrait too.
+## Feasibility
+Yes — this can absolutely be powered by your own OpenAI API key.
 
-Also bump the mobile cap modestly (60 → 90) so small-cluster sources get a couple of nodes each, while keeping perf acceptable.
+## Recommended architecture
+Use a backend function to generate the summary after a connection is selected.
 
-## Changes
-
-**`src/components/HighlightGraph.tsx`** — replace the current trim block:
-```ts
-workingHighlights = [...highlights]
-  .sort((a, b) => (degree.get(b.id) || 0) - (degree.get(a.id) || 0))
-  .slice(0, maxNodes);
+```text
+User clicks line
+→ ConnectionDetail opens
+→ frontend calls backend function with highlight A + highlight B
+→ backend builds prompt and calls AI provider
+→ backend returns short summary
+→ panel shows summary / loading / retry state
 ```
-with a per-book round-robin: group highlights by `book.id`, sort each group by degree desc, then interleave one-from-each-book per pass until `maxNodes` is reached.
 
-**`src/pages/Index.tsx`** — change `maxNodes={isMobile ? 60 : 999}` → `maxNodes={isMobile ? 90 : 999}`.
+## Provider options
+### Option 1 — Your OpenAI API key
+- Store `OPENAI_API_KEY` as a backend secret
+- Backend function calls OpenAI directly
+- Uses your own OpenAI billing/models
 
-## Out of scope
-- No changes to the `useIsMobile` breakpoint or layout.
-- No changes to desktop behavior (still uncapped).
+### Option 2 — Built-in Lovable AI
+- No extra key needed
+- Same UI/architecture
+- Easier setup
+
+The app can support either; only the backend call changes.
+
+## What I would build
+1. Add a new backend function, e.g. `summarize-connection`
+   - validate the two highlights
+   - build a prompt from both highlight texts, notes, titles, authors, and shared terms
+   - call OpenAI with your API key
+   - return a concise summary
+
+2. Update `ConnectionDetail.tsx`
+   - add an “AI summary” section
+   - show loading, success, and error states
+   - optionally add a retry button
+
+3. Add a small frontend hook/helper
+   - invoke the backend function
+   - cache results for the current session so repeated clicks on the same line don’t re-request unnecessarily
+
+## UX choice
+Two good patterns:
+- Auto-generate when the connection opens
+- Generate only when the user clicks a “Summarize connection” button
+
+I’d recommend the button first if you want to control cost.
+
+## Files likely involved
+- `src/components/ConnectionDetail.tsx`
+- new frontend helper/hook for fetching summaries
+- new backend function under `supabase/functions/`
+
+## Technical details
+- Keep the API key only in the backend, never in the browser
+- Return short summaries only, such as 2–4 sentences
+- Add clear handling for rate limits and API errors
+- If desired, we can later add model selection or persistent caching
+
+## Decision to make before implementation
+Choose one:
+1. Use your own OpenAI API key
+2. Use built-in Lovable AI
+
+And choose one trigger:
+1. Auto-generate on connection open
+2. Generate on button click
+
+## If you approve
+I’ll implement the backend function and wire the summary into the existing connection panel with loading/error states.
