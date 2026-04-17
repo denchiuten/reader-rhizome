@@ -204,30 +204,52 @@ const Index = () => {
         </div>
 
         {/* Desktop side panel */}
-        {!isMobile && selected && (
+        {!isMobile && selection && (
           <aside className="w-[380px] flex-shrink-0 overflow-hidden border-l border-border">
-            <HighlightDetail
-              highlight={selected}
-              allHighlights={highlights}
-              connections={connections}
-              onClose={() => setSelected(null)}
-              onSelect={setSelected}
-            />
+            {selection.kind === "highlight" ? (
+              <HighlightDetail
+                highlight={selection.highlight}
+                allHighlights={highlights}
+                connections={connections}
+                onClose={() => setSelection(null)}
+                onSelect={selectHighlight}
+              />
+            ) : (
+              <ConnectionDetail
+                a={selection.a}
+                b={selection.b}
+                score={selection.score}
+                sharedTerms={selection.sharedTerms}
+                onClose={() => setSelection(null)}
+                onSelectHighlight={selectHighlight}
+              />
+            )}
           </aside>
         )}
       </main>
 
       {/* Mobile bottom sheet */}
       {isMobile && (
-        <Sheet open={!!selected} onOpenChange={(open) => !open && setSelected(null)}>
+        <Sheet open={!!selection} onOpenChange={(open) => !open && setSelection(null)}>
           <SheetContent side="bottom" className="h-[80vh] p-0">
-            {selected && (
+            {selection?.kind === "highlight" && (
               <HighlightDetail
-                highlight={selected}
+                highlight={selection.highlight}
                 allHighlights={highlights}
                 connections={connections}
-                onClose={() => setSelected(null)}
-                onSelect={setSelected}
+                onClose={() => setSelection(null)}
+                onSelect={selectHighlight}
+                hideClose
+              />
+            )}
+            {selection?.kind === "connection" && (
+              <ConnectionDetail
+                a={selection.a}
+                b={selection.b}
+                score={selection.score}
+                sharedTerms={selection.sharedTerms}
+                onClose={() => setSelection(null)}
+                onSelectHighlight={selectHighlight}
                 hideClose
               />
             )}
