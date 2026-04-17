@@ -225,20 +225,52 @@ export function HighlightGraph({
         const isLabelNode = data.labelNodeIds.has(n.id);
         const isFocused = hover === n.id || selectedId === n.id;
         if (isLabelNode || isFocused) {
-          const label = n.highlight.book.title.slice(0, 36);
           const fontSize = Math.max(11, 13 / globalScale);
           ctx.font = `600 ${fontSize}px Inter, system-ui, sans-serif`;
-          const textWidth = ctx.measureText(label).width;
+
+          // Word-wrap the title to a max width, up to 3 lines
+          const maxLineWidth = 140; // px in graph space
+          const maxLines = 3;
+          const words = n.highlight.book.title.split(/\s+/);
+          const lines: string[] = [];
+          let current = "";
+          for (const word of words) {
+            const test = current ? `${current} ${word}` : word;
+            if (ctx.measureText(test).width <= maxLineWidth || !current) {
+              current = test;
+            } else {
+              lines.push(current);
+              current = word;
+              if (lines.length === maxLines - 1) break;
+            }
+          }
+          if (current && lines.length < maxLines) lines.push(current);
+          // If we broke early and there's leftover, ellipsize the last line
+          const totalRendered = lines.join(" ");
+          if (totalRendered.length < n.highlight.book.title.length) {
+            const last = lines[lines.length - 1];
+            let truncated = last;
+            while (ctx.measureText(truncated + "…").width > maxLineWidth && truncated.length > 1) {
+              truncated = truncated.slice(0, -1);
+            }
+            lines[lines.length - 1] = truncated + "…";
+          }
+
+          const lineHeight = fontSize + 2;
           const padX = 4;
           const padY = 2;
+          const boxWidth = Math.max(...lines.map((l) => ctx.measureText(l).width)) + padX * 2;
+          const boxHeight = lineHeight * lines.length + padY * 2;
           const boxY = n.y! + r + 4;
-          // Background pill for readability
+
           ctx.fillStyle = "hsla(249, 22%, 12%, 0.78)";
-          ctx.fillRect(n.x! - textWidth / 2 - padX, boxY, textWidth + padX * 2, fontSize + padY * 2);
+          ctx.fillRect(n.x! - boxWidth / 2, boxY, boxWidth, boxHeight);
           ctx.fillStyle = "hsla(245, 50%, 91%, 0.95)";
           ctx.textAlign = "center";
           ctx.textBaseline = "top";
-          ctx.fillText(label, n.x!, boxY + padY);
+          lines.forEach((line, i) => {
+            ctx.fillText(line, n.x!, boxY + padY + i * lineHeight);
+          });
         }
         ctx.globalAlpha = 1;
       }}
