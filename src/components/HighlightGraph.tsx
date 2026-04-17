@@ -30,6 +30,14 @@ export function HighlightGraph({
 }: Props) {
   const fgRef = useRef<ForceGraphMethods | undefined>(undefined);
   const hoverRef = useRef<number | null>(null);
+  const [hoveredLink, setHoveredLink] = useState<GraphLink | null>(null);
+  const [mousePos, setMousePos] = useState<{ x: number; y: number } | null>(null);
+
+  const titleById = useMemo(() => {
+    const m = new Map<number, string>();
+    for (const h of highlights) m.set(h.id, h.book.title);
+    return m;
+  }, [highlights]);
 
   const data: GraphData = useMemo(() => {
     const allBookIds = Array.from(new Set(highlights.map((h) => h.book.id)));
