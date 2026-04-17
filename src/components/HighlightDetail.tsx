@@ -34,6 +34,15 @@ export function HighlightDetail({
   );
 
   const readwiseUrl = `https://readwise.io/bookreview/${highlight.book.id}`;
+  const category = highlight.book.category;
+  const sourceUrl = highlight.book.source_url;
+  const preferOriginal = !!sourceUrl && category !== "books";
+  const linkHref = preferOriginal ? sourceUrl! : highlight.url || readwiseUrl;
+  const linkLabel = preferOriginal
+    ? category === "articles"
+      ? "Open original article"
+      : "Open original"
+    : "Open in Readwise";
 
   return (
     <div className="flex h-full flex-col bg-card">
