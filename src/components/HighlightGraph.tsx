@@ -69,6 +69,11 @@ export function HighlightGraph({
       target: c.relatedId,
       kind: "cross-source",
       color: CROSS_LINK_COLOR,
+      snippet: c.snippet,
+      score: c.score,
+      sharedTerms: c.sharedTerms,
+      sourceTitle: titleById.get(c.highlightId),
+      targetTitle: titleById.get(c.relatedId),
     }));
 
     // Connection counts for sizing & filtering
