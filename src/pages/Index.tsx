@@ -157,8 +157,9 @@ const Index = () => {
               <HighlightGraph
                 highlights={highlights}
                 connections={connections}
-                onSelect={setSelected}
-                selectedId={selected?.id ?? null}
+                onSelect={selectHighlight}
+                onSelectConnection={(c) => setSelection({ kind: "connection", ...c })}
+                selectedId={selectedHighlight?.id ?? null}
                 width={width}
                 height={height}
                 simplified={isMobile}
