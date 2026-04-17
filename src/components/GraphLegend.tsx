@@ -5,9 +5,10 @@ import type { Highlight } from "@/types/highlight";
 
 interface Props {
   highlights: Highlight[];
+  onFocusSource?: (bookId: number) => void;
 }
 
-export function GraphLegend({ highlights }: Props) {
+export function GraphLegend({ highlights, onFocusSource }: Props) {
   const [open, setOpen] = useState(true);
 
   const sources = useMemo(() => {
