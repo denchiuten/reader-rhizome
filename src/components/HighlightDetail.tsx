@@ -34,6 +34,15 @@ export function HighlightDetail({
   );
 
   const readwiseUrl = `https://readwise.io/bookreview/${highlight.book.id}`;
+  const category = highlight.book.category;
+  const sourceUrl = highlight.book.source_url;
+  const preferOriginal = !!sourceUrl && category !== "books";
+  const linkHref = preferOriginal ? sourceUrl! : highlight.url || readwiseUrl;
+  const linkLabel = preferOriginal
+    ? category === "articles"
+      ? "Open original article"
+      : "Open original"
+    : "Open in Readwise";
 
   return (
     <div className="flex h-full flex-col bg-card">
@@ -80,12 +89,12 @@ export function HighlightDetail({
               </div>
             )}
             <a
-              href={highlight.url || readwiseUrl}
+              href={linkHref}
               target="_blank"
               rel="noreferrer"
               className="mt-3 inline-flex items-center gap-1 text-xs text-primary hover:underline"
             >
-              Open in Readwise <ExternalLink className="h-3 w-3" />
+              {linkLabel} <ExternalLink className="h-3 w-3" />
             </a>
           </section>
 
