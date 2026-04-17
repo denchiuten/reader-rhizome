@@ -57,8 +57,14 @@ export function useReadwiseData() {
   const [categories, setCategories] = useState<CategoryKey[]>([]);
   const [tags, setTags] = useState<string[]>([]);
   const [connections, setConnections] = useState<CrossConnection[]>([]);
-  const [vectors, setVectors] = useState<VectorMap>(() => loadVectorCache());
+  const [vectors, setVectors] = useState<VectorMap>(() => new Map());
   const [vectorsReady, setVectorsReady] = useState<boolean>(false);
+
+  // Hydrate vector cache from localStorage on mount (avoids HMR hook-order issues)
+  useEffect(() => {
+    const cached = loadVectorCache();
+    if (cached.size > 0) setVectors(cached);
+  }, []);
 
   const reqIdRef = useRef(0);
 
