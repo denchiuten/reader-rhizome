@@ -78,7 +78,7 @@ const Index = () => {
                 align="start"
                 className="w-80 text-xs leading-relaxed text-muted-foreground"
               >
-                This is Dennis Chiu’s personal Readwise highlight graph, shared publicly so friends and colleagues can explore the ideas he’s reading. It pulls his 200 most recent highlights and surfaces connections between them.
+                This is Dennis Chiuten’s personal Readwise highlight graph, shared publicly so friends and colleagues can explore the ideas he’s reading. It pulls his 200 most recent highlights and surfaces connections between them.
               </PopoverContent>
             </Popover>
           </div>
@@ -152,7 +152,7 @@ const Index = () => {
           )}
 
           <footer className="absolute bottom-3 right-3 flex items-center gap-3 text-[10px] uppercase tracking-wider text-muted-foreground/70">
-            <span>Dennis Chiu</span>
+            <span>Dennis Chiuten</span>
             <a
               href="https://www.linkedin.com/in/dchiuten/"
               target="_blank"
