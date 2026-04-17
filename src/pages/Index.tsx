@@ -217,6 +217,7 @@ const Index = () => {
                 connections={connections}
                 onClose={() => setSelected(null)}
                 onSelect={setSelected}
+                hideClose
               />
             )}
           </SheetContent>

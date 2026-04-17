@@ -69,6 +69,7 @@ interface Props {
   connections: CrossConnection[];
   onClose: () => void;
   onSelect: (h: Highlight) => void;
+  hideClose?: boolean;
 }
 
 export function HighlightDetail({
@@ -77,6 +78,7 @@ export function HighlightDetail({
   connections,
   onClose,
   onSelect,
+  hideClose = false,
 }: Props) {
   const related = connections
     .filter((c) => c.highlightId === highlight.id || c.relatedId === highlight.id)
@@ -133,9 +135,11 @@ export function HighlightDetail({
             )}
           </div>
         </div>
-        <Button variant="ghost" size="icon" onClick={onClose} aria-label="Close" className="flex-shrink-0">
-          <X className="h-4 w-4" />
-        </Button>
+        {!hideClose && (
+          <Button variant="ghost" size="icon" onClick={onClose} aria-label="Close" className="flex-shrink-0">
+            <X className="h-4 w-4" />
+          </Button>
+        )}
       </header>
 
       <ScrollArea className="flex-1 [&>[data-radix-scroll-area-viewport]>div]:!block">
