@@ -127,6 +127,31 @@ export function HighlightGraph({
     link?.distance((l: GraphLink) => (l.kind === "cross-source" ? 120 : 30));
   }, [data]);
 
+  // Two-finger trackpad scroll pans; pinch (ctrlKey wheel) zooms.
+  useEffect(() => {
+    const fg = fgRef.current;
+    if (!fg) return;
+    // react-force-graph exposes the underlying canvas container
+    const container = (fg as unknown as { renderer?: () => { domElement: HTMLCanvasElement } }).renderer?.().domElement?.parentElement;
+    if (!container) return;
+
+    const handleWheel = (e: WheelEvent) => {
+      // Pinch-to-zoom on trackpads sets ctrlKey; let the library handle that.
+      if (e.ctrlKey) return;
+      e.preventDefault();
+      e.stopPropagation();
+      const currentZoom = fg.zoom();
+      // Convert pixel delta to graph-space delta
+      const dx = e.deltaX / currentZoom;
+      const dy = e.deltaY / currentZoom;
+      const center = fg.centerAt();
+      fg.centerAt((center.x ?? 0) + dx, (center.y ?? 0) + dy, 0);
+    };
+
+    container.addEventListener("wheel", handleWheel, { passive: false, capture: true });
+    return () => container.removeEventListener("wheel", handleWheel, { capture: true } as EventListenerOptions);
+  }, [data]);
+
   return (
     <ForceGraph2D
       ref={fgRef as never}
