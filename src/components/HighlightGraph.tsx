@@ -238,9 +238,19 @@ export function HighlightGraph({
         hoverRef.current = node ? (node as unknown as GraphNode).id : null;
       }}
       onBackgroundClick={() => onSelect(null)}
-      linkWidth={(l) => ((l as GraphLink).kind === "cross-source" ? 1.5 : 0.5)}
+      onLinkHover={(link) => {
+        const l = link as GraphLink | null;
+        setHoveredLink(l && l.kind === "cross-source" ? l : null);
+      }}
+      linkWidth={(l) => {
+        const link = l as GraphLink;
+        const isHovered = hoveredLink === link;
+        if (link.kind === "cross-source") return isHovered ? 3 : 1.5;
+        return 0.5;
+      }}
       linkColor={(l) => {
         const link = l as GraphLink;
+        if (hoveredLink === link) return link.color;
         const hover = hoverRef.current;
         const sel = selectedId;
         const focus = hover ?? sel;
