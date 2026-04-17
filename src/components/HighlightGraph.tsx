@@ -86,7 +86,21 @@ export function HighlightGraph({
       (l) => nodeIds.has(l.source as number) && nodeIds.has(l.target as number),
     );
 
-    return { nodes, links };
+    // Pick one "label node" per book — the highest-degree node in that cluster
+    const labelNodeIds = new Set<number>();
+    const byBook = new Map<number, GraphNode[]>();
+    for (const n of nodes) {
+      if (!byBook.has(n.bookId)) byBook.set(n.bookId, []);
+      byBook.get(n.bookId)!.push(n);
+    }
+    for (const [, ns] of byBook) {
+      const winner = ns.reduce((best, n) =>
+        (degree.get(n.id) || 0) > (degree.get(best.id) || 0) ? n : best,
+      );
+      labelNodeIds.add(winner.id);
+    }
+
+    return { nodes, links, labelNodeIds };
   }, [highlights, connections, simplified, maxNodes]);
 
   // Build neighbor map for hover dimming
