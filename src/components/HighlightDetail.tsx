@@ -47,18 +47,31 @@ export function HighlightDetail({
   return (
     <div className="flex h-full flex-col bg-card">
       <header className="flex items-start justify-between gap-2 border-b border-border p-4">
-        <div className="min-w-0 flex-1">
-          <p className="text-xs uppercase tracking-wider text-muted-foreground">
-            {highlight.book.category || "Highlight"}
-          </p>
-          <h2 className="mt-1 truncate text-base font-semibold text-foreground">
-            {highlight.book.title}
-          </h2>
-          {highlight.book.author && (
-            <p className="text-sm text-muted-foreground">{highlight.book.author}</p>
+        <div className="flex min-w-0 flex-1 items-start gap-3">
+          {highlight.book.cover_image_url && (
+            <img
+              src={highlight.book.cover_image_url}
+              alt=""
+              loading="lazy"
+              className="h-14 w-10 flex-shrink-0 rounded-sm border border-border object-cover shadow-sm"
+              onError={(e) => {
+                (e.currentTarget as HTMLImageElement).style.display = "none";
+              }}
+            />
           )}
+          <div className="min-w-0 flex-1">
+            <p className="text-xs uppercase tracking-wider text-muted-foreground">
+              {highlight.book.category || "Highlight"}
+            </p>
+            <h2 className="mt-1 truncate text-base font-semibold text-foreground">
+              {highlight.book.title}
+            </h2>
+            {highlight.book.author && (
+              <p className="truncate text-sm text-muted-foreground">{highlight.book.author}</p>
+            )}
+          </div>
         </div>
-        <Button variant="ghost" size="icon" onClick={onClose} aria-label="Close">
+        <Button variant="ghost" size="icon" onClick={onClose} aria-label="Close" className="flex-shrink-0">
           <X className="h-4 w-4" />
         </Button>
       </header>
