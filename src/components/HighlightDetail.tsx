@@ -63,8 +63,8 @@ export function HighlightDetail({
         </Button>
       </header>
 
-      <ScrollArea className="flex-1">
-        <div className="space-y-6 p-4">
+      <ScrollArea className="flex-1 [&>[data-radix-scroll-area-viewport]>div]:!block">
+        <div className="w-full space-y-6 p-4">
           <section>
             <p className="whitespace-pre-wrap text-[15px] leading-relaxed text-foreground">
               {highlight.text}
