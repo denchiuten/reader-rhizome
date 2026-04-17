@@ -253,6 +253,22 @@ export function HighlightGraph({
         hoverRef.current = node ? (node as unknown as GraphNode).id : null;
       }}
       onBackgroundClick={() => onSelect(null)}
+      onLinkClick={(link) => {
+        const l = link as GraphLink;
+        if (l.kind !== "cross-source" || !onSelectConnection) return;
+        const sId = typeof l.source === "object" ? l.source.id : l.source;
+        const tId = typeof l.target === "object" ? l.target.id : l.target;
+        const a = highlightById.get(sId as number);
+        const b = highlightById.get(tId as number);
+        if (!a || !b) return;
+        onSelectConnection({ a, b, score: l.score, sharedTerms: l.sharedTerms });
+        if (fgRef.current && typeof l.source === "object" && typeof l.target === "object") {
+          const cx = ((l.source.x ?? 0) + (l.target.x ?? 0)) / 2;
+          const cy = ((l.source.y ?? 0) + (l.target.y ?? 0)) / 2;
+          fgRef.current.centerAt(cx, cy, 600);
+          fgRef.current.zoom(2, 600);
+        }
+      }}
       onLinkHover={(link) => {
         const l = link as GraphLink | null;
         setHoveredLink(l && l.kind === "cross-source" ? l : null);
