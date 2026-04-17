@@ -86,7 +86,21 @@ export function HighlightGraph({
       (l) => nodeIds.has(l.source as number) && nodeIds.has(l.target as number),
     );
 
-    return { nodes, links };
+    // Pick one "label node" per book — the highest-degree node in that cluster
+    const labelNodeIds = new Set<number>();
+    const byBook = new Map<number, GraphNode[]>();
+    for (const n of nodes) {
+      if (!byBook.has(n.bookId)) byBook.set(n.bookId, []);
+      byBook.get(n.bookId)!.push(n);
+    }
+    for (const [, ns] of byBook) {
+      const winner = ns.reduce((best, n) =>
+        (degree.get(n.id) || 0) > (degree.get(best.id) || 0) ? n : best,
+      );
+      labelNodeIds.add(winner.id);
+    }
+
+    return { nodes, links, labelNodeIds };
   }, [highlights, connections, simplified, maxNodes]);
 
   // Build neighbor map for hover dimming
@@ -181,14 +195,25 @@ export function HighlightGraph({
         ctx.lineWidth = 0.5;
         ctx.stroke();
 
-        // Label only for big nodes or zoomed in
-        if (globalScale > 2.2 || r > 5) {
-          const label = n.highlight.book.title.slice(0, 28);
-          ctx.font = `${10 / globalScale}px Inter, system-ui, sans-serif`;
-          ctx.fillStyle = "hsla(245, 50%, 91%, 0.85)";
+        // One label per cluster: only the chosen "label node" for each book gets the title.
+        // Always show on hover/selection regardless.
+        const isLabelNode = data.labelNodeIds.has(n.id);
+        const isFocused = hover === n.id || selectedId === n.id;
+        if (isLabelNode || isFocused) {
+          const label = n.highlight.book.title.slice(0, 36);
+          const fontSize = Math.max(11, 13 / globalScale);
+          ctx.font = `600 ${fontSize}px Inter, system-ui, sans-serif`;
+          const textWidth = ctx.measureText(label).width;
+          const padX = 4;
+          const padY = 2;
+          const boxY = n.y! + r + 4;
+          // Background pill for readability
+          ctx.fillStyle = "hsla(249, 22%, 12%, 0.78)";
+          ctx.fillRect(n.x! - textWidth / 2 - padX, boxY, textWidth + padX * 2, fontSize + padY * 2);
+          ctx.fillStyle = "hsla(245, 50%, 91%, 0.95)";
           ctx.textAlign = "center";
           ctx.textBaseline = "top";
-          ctx.fillText(label, n.x!, n.y! + r + 2);
+          ctx.fillText(label, n.x!, boxY + padY);
         }
         ctx.globalAlpha = 1;
       }}
