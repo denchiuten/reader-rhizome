@@ -93,12 +93,12 @@ const Index = () => {
             <CategoryFilter
               selected={categories}
               onChange={setCategories}
-              disabled={loading || connectionsLoading}
+              disabled={loading}
             />
             <TagFilter
               selected={tags}
               onChange={setTags}
-              disabled={loading || connectionsLoading}
+              disabled={loading}
             />
           </div>
         </div>
