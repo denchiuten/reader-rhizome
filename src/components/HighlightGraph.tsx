@@ -199,7 +199,20 @@ export function HighlightGraph({
 
     // Capture phase on the wrapper intercepts before the canvas's own listener fires
     wrapper.addEventListener("wheel", handleWheel, { passive: false, capture: true });
-    return () => wrapper.removeEventListener("wheel", handleWheel, true);
+
+    const handleMove = (e: MouseEvent) => {
+      const rect = wrapper.getBoundingClientRect();
+      setMousePos({ x: e.clientX - rect.left, y: e.clientY - rect.top });
+    };
+    const handleLeave = () => setMousePos(null);
+    wrapper.addEventListener("mousemove", handleMove);
+    wrapper.addEventListener("mouseleave", handleLeave);
+
+    return () => {
+      wrapper.removeEventListener("wheel", handleWheel, true);
+      wrapper.removeEventListener("mousemove", handleMove);
+      wrapper.removeEventListener("mouseleave", handleLeave);
+    };
   }, []);
 
   return (
