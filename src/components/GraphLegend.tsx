@@ -5,9 +5,10 @@ import type { Highlight } from "@/types/highlight";
 
 interface Props {
   highlights: Highlight[];
+  onFocusSource?: (bookId: number) => void;
 }
 
-export function GraphLegend({ highlights }: Props) {
+export function GraphLegend({ highlights, onFocusSource }: Props) {
   const [open, setOpen] = useState(true);
 
   const sources = useMemo(() => {
@@ -103,20 +104,14 @@ export function GraphLegend({ highlights }: Props) {
               );
               return (
                 <li key={s.id}>
-                  {s.url ? (
-                    <a
-                      href={s.url}
-                      target="_blank"
-                      rel="noreferrer"
-                      className="-mx-1 flex items-center gap-2 rounded-sm px-1 py-0.5 hover:bg-accent hover:text-foreground"
-                    >
-                      {content}
-                    </a>
-                  ) : (
-                    <div className="-mx-1 flex cursor-default items-center gap-2 px-1 py-0.5">
-                      {content}
-                    </div>
-                  )}
+                  <button
+                    type="button"
+                    onClick={() => onFocusSource?.(s.id)}
+                    className="-mx-1 flex w-full items-center gap-2 rounded-sm px-1 py-0.5 text-left hover:bg-accent hover:text-foreground"
+                    title={s.url ? `Focus cluster · ${s.title}` : `Focus cluster · ${s.title}`}
+                  >
+                    {content}
+                  </button>
                 </li>
               );
             })}

@@ -33,6 +33,7 @@ const Index = () => {
   const containerRef = useRef<HTMLDivElement>(null);
   const { width, height } = useElementSize(containerRef);
   const [selected, setSelected] = useState<Highlight | null>(null);
+  const [focusBookId, setFocusBookId] = useState<number | null>(null);
 
   const sourceCount = useMemo(
     () => new Set(highlights.map((h) => h.book.id)).size,
@@ -152,8 +153,15 @@ const Index = () => {
                 height={height}
                 simplified={isMobile}
                 maxNodes={isMobile ? 60 : 999}
+                focusBookId={focusBookId}
+                onFocusHandled={() => setFocusBookId(null)}
               />
-              {!isMobile && <GraphLegend highlights={highlights} />}
+              {!isMobile && (
+                <GraphLegend
+                  highlights={highlights}
+                  onFocusSource={(id) => setFocusBookId(id)}
+                />
+              )}
             </>
           ) : null}
 

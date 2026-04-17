@@ -12,6 +12,8 @@ interface Props {
   height: number;
   simplified?: boolean;
   maxNodes?: number;
+  focusBookId?: number | null;
+  onFocusHandled?: () => void;
 }
 
 export function HighlightGraph({
@@ -23,6 +25,8 @@ export function HighlightGraph({
   height,
   simplified = false,
   maxNodes = 60,
+  focusBookId = null,
+  onFocusHandled,
 }: Props) {
   const fgRef = useRef<ForceGraphMethods | undefined>(undefined);
   const hoverRef = useRef<number | null>(null);
@@ -126,6 +130,37 @@ export function HighlightGraph({
     const link = fg.d3Force("link") as unknown as { distance: (fn: (l: GraphLink) => number) => void } | undefined;
     link?.distance((l: GraphLink) => (l.kind === "cross-source" ? 120 : 30));
   }, [data]);
+
+  // Focus on a source's cluster when requested from the legend
+  useEffect(() => {
+    if (focusBookId == null) return;
+    const fg = fgRef.current;
+    if (!fg) return;
+    const clusterNodes = data.nodes.filter(
+      (n) => n.bookId === focusBookId && n.x != null && n.y != null,
+    );
+    if (clusterNodes.length === 0) return;
+
+    // Wait a frame so positions are stable
+    const timer = window.setTimeout(() => {
+      const xs = clusterNodes.map((n) => n.x!);
+      const ys = clusterNodes.map((n) => n.y!);
+      const minX = Math.min(...xs);
+      const maxX = Math.max(...xs);
+      const minY = Math.min(...ys);
+      const maxY = Math.max(...ys);
+      const cx = (minX + maxX) / 2;
+      const cy = (minY + maxY) / 2;
+      const padding = 80;
+      const spanX = Math.max(60, maxX - minX) + padding;
+      const spanY = Math.max(60, maxY - minY) + padding;
+      const zoom = Math.min(width / spanX, height / spanY, 4);
+      fg.centerAt(cx, cy, 700);
+      fg.zoom(Math.max(0.6, zoom), 700);
+      onFocusHandled?.();
+    }, 50);
+    return () => window.clearTimeout(timer);
+  }, [focusBookId, data.nodes, width, height, onFocusHandled]);
 
   const wrapperRef = useRef<HTMLDivElement>(null);
 
