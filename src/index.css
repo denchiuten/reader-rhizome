@@ -5,7 +5,7 @@
 /* Rose Pine inspired dark theme for Highlight Graph */
 @layer base {
   :root {
-    --background: 249 22% 12%;
+    --background: 0 0% 0%;
     --foreground: 245 50% 91%;
 
     --card: 248 25% 18%;
@@ -54,7 +54,7 @@
   }
 
   .dark {
-    --background: 249 22% 12%;
+    --background: 0 0% 0%;
     --foreground: 245 50% 91%;
     --card: 248 25% 18%;
     --card-foreground: 245 50% 91%;

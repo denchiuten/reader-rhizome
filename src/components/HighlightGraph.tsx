@@ -222,7 +222,7 @@ export function HighlightGraph({
       graphData={data}
       width={width}
       height={height}
-      backgroundColor="hsl(249, 22%, 12%)"
+      backgroundColor="hsl(0, 0%, 0%)"
       nodeRelSize={4}
       cooldownTicks={120}
       enableNodeDrag={!simplified}
@@ -335,7 +335,7 @@ export function HighlightGraph({
           const boxHeight = lineHeight * lines.length + padY * 2;
           const boxY = n.y! + r + 4;
 
-          ctx.fillStyle = "hsla(249, 22%, 12%, 0.78)";
+          ctx.fillStyle = "hsla(0, 0%, 0%, 0.78)";
           ctx.fillRect(n.x! - boxWidth / 2, boxY, boxWidth, boxHeight);
           ctx.fillStyle = "hsla(245, 50%, 91%, 0.95)";
           ctx.textAlign = "center";
