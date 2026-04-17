@@ -1,50 +1,86 @@
 
 ## Goal
-Show why two highlights are semantically connected when hovering a cross-source edge.
+When the user clicks a cross-source (dashed) edge in the graph, open the side panel showing **both** connected highlights side-by-side, instead of just one.
 
 ## Current state
-- `CrossConnection` already carries a `snippet` field (in `src/types/highlight.ts`), but it's not surfaced anywhere in the UI.
-- Cross-source links are rendered in `HighlightGraph.tsx` via `react-force-graph-2d`, which supports per-link hover (`onLinkHover`) and a built-in `linkLabel` (HTML tooltip on hover).
+- `HighlightGraph.tsx` exposes `onSelect: (h: Highlight | null) => void` — single highlight only.
+- `Index.tsx` owns `selectedHighlight` state and renders `<HighlightDetail highlight={selectedHighlight} ... />` in the side panel.
+- `HighlightDetail.tsx` renders one highlight.
+- Cross-source links already carry `snippet`, `score`, `sharedTerms`, `sourceTitle`, `targetTitle` (added in the previous step). We also need access to the underlying source/target highlight ids → can be read from `link.source` / `link.target` (already nodes after force layout).
+- `react-force-graph-2d` supports `onLinkClick`.
 
 ## Approach
-Use the library's built-in link hover + a custom floating tooltip so we can render a richer, styled explanation (snippet + the two source titles + similarity context) instead of the plain browser title tooltip.
 
-### 1. Enrich the connection reason
-In `src/lib/connections.ts`, when building each `CrossConnection`:
-- Keep the existing `snippet` (currently a short text excerpt).
-- Also compute and store:
-  - `score` (cosine similarity, already calculated — just persist it)
-  - `sharedTerms`: top 2–4 overlapping meaningful words between the two highlights (simple tokenize → lowercase → stopword filter → intersect → rank by combined length/frequency). This gives a human-readable "why".
-- Update `CrossConnection` type in `src/types/highlight.ts` with optional `score` and `sharedTerms: string[]`.
+### 1. New selection model
+Change the side-panel selection to support either:
+- a single highlight (existing flow — node click), OR
+- a connection (two highlights + score + sharedTerms — new flow)
 
-### 2. Pass reason data onto graph links
-In `HighlightGraph.tsx`, when mapping `connections` → `crossLinks`, attach `snippet`, `score`, and `sharedTerms` to each link object. Extend `GraphLink` type to allow these optional fields on cross-source links.
+Introduce in `Index.tsx`:
+```ts
+type Selection =
+  | { kind: "highlight"; highlight: Highlight }
+  | { kind: "connection"; a: Highlight; b: Highlight; score?: number; sharedTerms?: string[] }
+  | null;
+```
 
-### 3. Hover interaction on edges
-In `HighlightGraph.tsx`:
-- Add `onLinkHover={(link) => setHoveredLink(link)}` and track hovered link in a ref + state (state needed to trigger tooltip re-render).
-- Track mouse position via a `mousemove` listener on the wrapper div (already have `wrapperRef`).
-- Slightly thicken + brighten the hovered cross-source link in `linkWidth` / `linkColor` callbacks for affordance.
+### 2. Wire edge clicks in `HighlightGraph.tsx`
+- Add a new prop `onSelectConnection?: (conn: { a: Highlight; b: Highlight; score?: number; sharedTerms?: string[] }) => void`.
+- Build a `highlightById` map (already have `titleById`; extend to a full Highlight map).
+- Add `onLinkClick={(link) => { ... }}`:
+  - Only handle `kind === "cross-source"`.
+  - Resolve source/target ids → look up Highlight objects.
+  - Call `onSelectConnection` with both highlights + the link's `score` and `sharedTerms`.
+  - Optionally `centerAt` the midpoint between the two nodes and zoom slightly.
+- Increase the link pointer area for cross-source edges so they're easier to click — add `linkPointerAreaPaint` that draws a thicker invisible band along cross-source links (skip for same-source to keep node clicks priority).
 
-### 4. Floating tooltip
-Render a small absolutely-positioned tooltip inside the wrapper div when a cross-source link is hovered:
-- Position near cursor (with viewport edge clamping).
-- Content:
-  - Header: "Connected idea"
-  - Shared terms as small badges (if any)
-  - Snippet in italics
-  - Two source titles ("From X ↔ Y") in muted text
-- Styled with existing Tailwind tokens (`bg-popover`, `text-popover-foreground`, `border`, `shadow-md`, `rounded-md`), matching the rest of the UI.
-- `pointer-events-none` so it never blocks the canvas.
+  Actually simpler: rely on the library's default link hit-detection. Cross-source edges are dashed and 1.5–3px wide; the library's default tolerance (~4px) is workable. If clicks feel finicky we can add `linkPointerAreaPaint` later. For first pass, skip the custom paint.
+
+### 3. Side panel rendering in `Index.tsx`
+- Replace `selectedHighlight` state with the new `Selection` union.
+- Pass:
+  - `selectedId` to graph: derive as `selection?.kind === "highlight" ? selection.highlight.id : null` (keeps the node glow behavior unchanged for single-highlight selection; connection selection won't glow a single node — that's fine).
+  - `onSelect` for node clicks: wraps into `{ kind: "highlight", highlight }`.
+  - New `onSelectConnection` for edge clicks: wraps into `{ kind: "connection", ... }`.
+- In the side panel:
+  - If `selection.kind === "highlight"` → render `<HighlightDetail highlight={selection.highlight} ... />` as today.
+  - If `selection.kind === "connection"` → render a new `<ConnectionDetail ... />` component.
+
+### 4. New component: `src/components/ConnectionDetail.tsx`
+Layout (responsive):
+- Header:
+  - Small "Connected idea" eyebrow label
+  - Right side: similarity % badge if score available
+- Shared terms as small badges (reuse the same chip style from the hover tooltip for consistency)
+- Two highlights side-by-side on `md+`, stacked on smaller screens. The side panel in `Index.tsx` is wide enough on desktop (need to confirm — currently it's an aside on the right; will use `grid grid-cols-1 md:grid-cols-2 gap-4` and let it stack if narrow).
+- Each side renders a compact card:
+  - Book title (linked if `source_url`)
+  - Author (muted)
+  - Highlight text (with quotes / italic styling matching `HighlightDetail`)
+  - Optional note (if present)
+  - "Open highlight" button → switches selection to `{ kind: "highlight", highlight }` so the user can drill into a single one
+- Close button (X) at top-right matching `HighlightDetail`'s close affordance — reuse same `onClose` pattern.
+
+Design: use existing tokens (`bg-card`, `border`, `text-foreground`, `text-muted-foreground`, `bg-muted/40`, `rounded-md`). No new colors. Match `HighlightDetail`'s typography choices for visual cohesion.
 
 ### 5. Mobile
-Hover doesn't exist on touch. Skip the tooltip on mobile (`simplified` prop is already a good proxy) — no behavior change there.
+- The side panel already adapts to mobile (it's a sheet/drawer on small screens, based on prior structure). Need to verify in `Index.tsx`. The two-column layout collapses to one column via Tailwind responsive classes — no extra logic needed.
 
 ## Files to edit
-- `src/types/highlight.ts` — extend `CrossConnection` and `GraphLink`.
-- `src/lib/connections.ts` — compute `score` + `sharedTerms`, attach to each connection.
-- `src/components/HighlightGraph.tsx` — link hover state, tooltip rendering, hover styling.
+- `src/pages/Index.tsx` — replace `selectedHighlight` with `Selection` union; route node vs edge selection; render `ConnectionDetail` or `HighlightDetail`.
+- `src/components/HighlightGraph.tsx` — add `onSelectConnection` prop and `onLinkClick` handler that resolves both highlights from the link.
+- `src/components/ConnectionDetail.tsx` — new component for the dual-highlight view.
 
 ## Out of scope
-- No changes to embeddings, thresholds, or the side panel.
+- No changes to embeddings, tooltip, or graph layout.
 - No new dependencies.
+- Not changing the existing `HighlightDetail` component (only how it's invoked).
+- Not adding URL routing for selections.
+
+## Validation
+- Click a node → side panel shows that single highlight (existing behavior unchanged).
+- Click a dashed cross-source edge → side panel shows both connected highlights side-by-side, with shared terms and similarity %.
+- Click a same-source edge → nothing happens (or just clears, matching background-click behavior).
+- Click "Open highlight" inside a connection card → side panel switches to that single highlight.
+- Close button clears selection.
+- Mobile: two cards stack vertically, layout remains readable.
