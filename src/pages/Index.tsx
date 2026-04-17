@@ -180,7 +180,7 @@ const Index = () => {
                 width={width}
                 height={height}
                 simplified={isMobile}
-                maxNodes={isMobile ? 60 : 999}
+                maxNodes={isMobile ? 90 : 999}
                 focusBookId={focusBookId}
                 onFocusHandled={() => setFocusBookId(null)}
               />
