@@ -118,7 +118,7 @@ export function HighlightGraph({
     }
 
     return { nodes, links, labelNodeIds };
-  }, [highlights, connections, simplified, maxNodes]);
+  }, [highlights, connections, simplified, maxNodes, titleById]);
 
   // Build neighbor map for hover dimming
   const neighbors = useMemo(() => {
