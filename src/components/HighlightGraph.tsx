@@ -281,7 +281,8 @@ export function HighlightGraph({
         const n = node as unknown as GraphNode;
         ctx.fillStyle = color;
         ctx.beginPath();
-        ctx.arc(n.x!, n.y!, n.val + 2, 0, 2 * Math.PI);
+        // Generous click target so small nodes are easy to hit
+        ctx.arc(n.x!, n.y!, Math.max(8, n.val + 4), 0, 2 * Math.PI);
         ctx.fill();
       }}
     />
