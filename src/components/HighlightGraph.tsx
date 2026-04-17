@@ -3,10 +3,18 @@ import ForceGraph2D, { type ForceGraphMethods } from "react-force-graph-2d";
 import type { CrossConnection, GraphData, GraphLink, GraphNode, Highlight } from "@/types/highlight";
 import { CROSS_LINK_COLOR, colorForBook } from "@/lib/colors";
 
+interface ConnectionSelection {
+  a: Highlight;
+  b: Highlight;
+  score?: number;
+  sharedTerms?: string[];
+}
+
 interface Props {
   highlights: Highlight[];
   connections: CrossConnection[];
   onSelect: (h: Highlight | null) => void;
+  onSelectConnection?: (conn: ConnectionSelection) => void;
   selectedId: number | null;
   width: number;
   height: number;
@@ -20,6 +28,7 @@ export function HighlightGraph({
   highlights,
   connections,
   onSelect,
+  onSelectConnection,
   selectedId,
   width,
   height,
@@ -36,6 +45,12 @@ export function HighlightGraph({
   const titleById = useMemo(() => {
     const m = new Map<number, string>();
     for (const h of highlights) m.set(h.id, h.book.title);
+    return m;
+  }, [highlights]);
+
+  const highlightById = useMemo(() => {
+    const m = new Map<number, Highlight>();
+    for (const h of highlights) m.set(h.id, h);
     return m;
   }, [highlights]);
 
@@ -238,6 +253,22 @@ export function HighlightGraph({
         hoverRef.current = node ? (node as unknown as GraphNode).id : null;
       }}
       onBackgroundClick={() => onSelect(null)}
+      onLinkClick={(link) => {
+        const l = link as GraphLink;
+        if (l.kind !== "cross-source" || !onSelectConnection) return;
+        const sId = typeof l.source === "object" ? l.source.id : l.source;
+        const tId = typeof l.target === "object" ? l.target.id : l.target;
+        const a = highlightById.get(sId as number);
+        const b = highlightById.get(tId as number);
+        if (!a || !b) return;
+        onSelectConnection({ a, b, score: l.score, sharedTerms: l.sharedTerms });
+        if (fgRef.current && typeof l.source === "object" && typeof l.target === "object") {
+          const cx = ((l.source.x ?? 0) + (l.target.x ?? 0)) / 2;
+          const cy = ((l.source.y ?? 0) + (l.target.y ?? 0)) / 2;
+          fgRef.current.centerAt(cx, cy, 600);
+          fgRef.current.zoom(2, 600);
+        }
+      }}
       onLinkHover={(link) => {
         const l = link as GraphLink | null;
         setHoveredLink(l && l.kind === "cross-source" ? l : null);

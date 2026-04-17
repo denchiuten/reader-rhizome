@@ -6,6 +6,7 @@ import { Alert, AlertDescription, AlertTitle } from "@/components/ui/alert";
 import { Popover, PopoverContent, PopoverTrigger } from "@/components/ui/popover";
 import { HighlightGraph } from "@/components/HighlightGraph";
 import { HighlightDetail } from "@/components/HighlightDetail";
+import { ConnectionDetail } from "@/components/ConnectionDetail";
 import { CategoryFilter } from "@/components/CategoryFilter";
 import { TagFilter } from "@/components/TagFilter";
 import { GraphLegend } from "@/components/GraphLegend";
@@ -13,6 +14,11 @@ import { useReadwiseData } from "@/hooks/useReadwiseData";
 import { useIsMobile } from "@/hooks/use-mobile";
 import { useElementSize } from "@/hooks/useElementSize";
 import type { Highlight } from "@/types/highlight";
+
+type Selection =
+  | { kind: "highlight"; highlight: Highlight }
+  | { kind: "connection"; a: Highlight; b: Highlight; score?: number; sharedTerms?: string[] }
+  | null;
 
 const Index = () => {
   const {
@@ -32,8 +38,12 @@ const Index = () => {
   const isMobile = useIsMobile();
   const containerRef = useRef<HTMLDivElement>(null);
   const { width, height } = useElementSize(containerRef);
-  const [selected, setSelected] = useState<Highlight | null>(null);
+  const [selection, setSelection] = useState<Selection>(null);
   const [focusBookId, setFocusBookId] = useState<number | null>(null);
+
+  const selectedHighlight = selection?.kind === "highlight" ? selection.highlight : null;
+  const selectHighlight = (h: Highlight | null) =>
+    setSelection(h ? { kind: "highlight", highlight: h } : null);
 
   const sourceCount = useMemo(
     () => new Set(highlights.map((h) => h.book.id)).size,
@@ -147,8 +157,9 @@ const Index = () => {
               <HighlightGraph
                 highlights={highlights}
                 connections={connections}
-                onSelect={setSelected}
-                selectedId={selected?.id ?? null}
+                onSelect={selectHighlight}
+                onSelectConnection={(c) => setSelection({ kind: "connection", ...c })}
+                selectedId={selectedHighlight?.id ?? null}
                 width={width}
                 height={height}
                 simplified={isMobile}
@@ -193,30 +204,52 @@ const Index = () => {
         </div>
 
         {/* Desktop side panel */}
-        {!isMobile && selected && (
+        {!isMobile && selection && (
           <aside className="w-[380px] flex-shrink-0 overflow-hidden border-l border-border">
-            <HighlightDetail
-              highlight={selected}
-              allHighlights={highlights}
-              connections={connections}
-              onClose={() => setSelected(null)}
-              onSelect={setSelected}
-            />
+            {selection.kind === "highlight" ? (
+              <HighlightDetail
+                highlight={selection.highlight}
+                allHighlights={highlights}
+                connections={connections}
+                onClose={() => setSelection(null)}
+                onSelect={selectHighlight}
+              />
+            ) : (
+              <ConnectionDetail
+                a={selection.a}
+                b={selection.b}
+                score={selection.score}
+                sharedTerms={selection.sharedTerms}
+                onClose={() => setSelection(null)}
+                onSelectHighlight={selectHighlight}
+              />
+            )}
           </aside>
         )}
       </main>
 
       {/* Mobile bottom sheet */}
       {isMobile && (
-        <Sheet open={!!selected} onOpenChange={(open) => !open && setSelected(null)}>
+        <Sheet open={!!selection} onOpenChange={(open) => !open && setSelection(null)}>
           <SheetContent side="bottom" className="h-[80vh] p-0">
-            {selected && (
+            {selection?.kind === "highlight" && (
               <HighlightDetail
-                highlight={selected}
+                highlight={selection.highlight}
                 allHighlights={highlights}
                 connections={connections}
-                onClose={() => setSelected(null)}
-                onSelect={setSelected}
+                onClose={() => setSelection(null)}
+                onSelect={selectHighlight}
+                hideClose
+              />
+            )}
+            {selection?.kind === "connection" && (
+              <ConnectionDetail
+                a={selection.a}
+                b={selection.b}
+                score={selection.score}
+                sharedTerms={selection.sharedTerms}
+                onClose={() => setSelection(null)}
+                onSelectHighlight={selectHighlight}
                 hideClose
               />
             )}
