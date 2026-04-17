@@ -159,7 +159,8 @@ Deno.serve(async (req) => {
       const rows = batch.map((b, idx) => ({
         highlight_id: b.id,
         text_hash: b.hash,
-        embedding: vectors[idx] as unknown as string, // pgvector accepts JSON array
+        // pgvector via PostgREST expects a string literal like "[0.1,0.2,...]"
+        embedding: `[${vectors[idx].join(",")}]`,
         model: MODEL,
       }));
       const { error: upErr } = await supabase
@@ -178,11 +179,18 @@ Deno.serve(async (req) => {
       },
     );
   } catch (err) {
-    const msg = err instanceof Error ? err.message : "Unknown error";
+    const msg =
+      err instanceof Error
+        ? `${err.message}${err.stack ? `\n${err.stack}` : ""}`
+        : JSON.stringify(err);
     console.error("embed-highlights error:", msg);
-    return new Response(JSON.stringify({ error: "Failed to compute embeddings" }), {
-      status: 500,
-      headers: { ...corsHeaders, "Content-Type": "application/json" },
-    });
+    return new Response(
+      JSON.stringify({ error: "Failed to compute embeddings", detail: msg.slice(0, 500) }),
+      {
+        status: 500,
+        headers: { ...corsHeaders, "Content-Type": "application/json" },
+      },
+    );
   }
 });
+
