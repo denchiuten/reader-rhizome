@@ -72,8 +72,8 @@ const Index = () => {
         </Button>
       </header>
 
-      <main className="flex min-h-0 min-w-0 flex-1">
-        <div ref={containerRef} className="relative min-h-0 min-w-0 flex-1">
+      <main className="flex min-h-0 min-w-0 flex-1 overflow-hidden">
+        <div ref={containerRef} className="relative min-h-0 min-w-0 flex-1 overflow-hidden">
           {loading ? (
             <div className="flex h-full flex-col items-center justify-center gap-3 text-muted-foreground">
               <Loader2 className="h-8 w-8 animate-spin text-primary" />
