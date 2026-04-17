@@ -72,8 +72,8 @@ const Index = () => {
         </Button>
       </header>
 
-      <main className="flex min-h-0 flex-1">
-        <div ref={containerRef} className="relative min-h-0 flex-1">
+      <main className="flex min-h-0 min-w-0 flex-1">
+        <div ref={containerRef} className="relative min-h-0 min-w-0 flex-1">
           {loading ? (
             <div className="flex h-full flex-col items-center justify-center gap-3 text-muted-foreground">
               <Loader2 className="h-8 w-8 animate-spin text-primary" />
@@ -120,7 +120,7 @@ const Index = () => {
 
         {/* Desktop side panel */}
         {!isMobile && selected && (
-          <aside className="w-[380px] flex-shrink-0 border-l border-border">
+          <aside className="w-[380px] flex-shrink-0 overflow-hidden border-l border-border">
             <HighlightDetail
               highlight={selected}
               allHighlights={highlights}
