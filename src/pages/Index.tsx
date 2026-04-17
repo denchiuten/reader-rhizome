@@ -1,8 +1,9 @@
 import { useMemo, useRef, useState } from "react";
-import { AlertTriangle, Loader2, RefreshCw } from "lucide-react";
+import { AlertTriangle, Info, Loader2, RefreshCw } from "lucide-react";
 import { Button } from "@/components/ui/button";
 import { Sheet, SheetContent } from "@/components/ui/sheet";
 import { Alert, AlertDescription, AlertTitle } from "@/components/ui/alert";
+import { Tooltip, TooltipContent, TooltipProvider, TooltipTrigger } from "@/components/ui/tooltip";
 import { HighlightGraph } from "@/components/HighlightGraph";
 import { HighlightDetail } from "@/components/HighlightDetail";
 import { CategoryFilter } from "@/components/CategoryFilter";
@@ -58,9 +59,27 @@ const Index = () => {
     <div className="flex h-screen w-screen flex-col overflow-hidden bg-background">
       <header className="flex flex-shrink-0 items-center justify-between gap-3 border-b border-border bg-card/50 px-4 py-3 backdrop-blur sm:px-6">
         <div className="min-w-0">
-          <h1 className="text-base font-semibold tracking-tight text-foreground sm:text-lg">
-            Dennis’ Readwise Highlight Graph
-          </h1>
+          <div className="flex items-center gap-1.5">
+            <h1 className="text-base font-semibold tracking-tight text-foreground sm:text-lg">
+              Dennis’ Readwise Highlight Graph
+            </h1>
+            <TooltipProvider delayDuration={150}>
+              <Tooltip>
+                <TooltipTrigger asChild>
+                  <button
+                    type="button"
+                    aria-label="About this site"
+                    className="text-muted-foreground transition-colors hover:text-foreground"
+                  >
+                    <Info className="h-3.5 w-3.5" />
+                  </button>
+                </TooltipTrigger>
+                <TooltipContent side="bottom" align="start" className="max-w-xs text-xs leading-relaxed">
+                  This is Dennis Chiu’s personal Readwise highlight graph, shared publicly so friends and colleagues can explore the ideas he’s reading. It pulls his 200 most recent highlights and surfaces connections between them.
+                </TooltipContent>
+              </Tooltip>
+            </TooltipProvider>
+          </div>
           <p className="text-xs text-muted-foreground sm:text-sm">
             An interactive network of related ideas from what I’m reading.
           </p>
