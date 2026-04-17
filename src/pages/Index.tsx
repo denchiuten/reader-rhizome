@@ -83,7 +83,7 @@ const Index = () => {
                 align="start"
                 className="w-80 text-xs leading-relaxed text-muted-foreground"
               >
-                This is Dennis Chiuten’s personal Readwise highlight graph, shared publicly so friends and colleagues can explore the ideas he’s reading. It pulls his 200 most recent highlights and surfaces connections between them.
+                This is Dennis Chiuten’s personal Readwise highlight graph, shared publicly so friends and colleagues can explore the ideas he’s reading. It pulls his 300 most recent highlights and surfaces connections between them.
               </PopoverContent>
             </Popover>
           </div>
@@ -121,7 +121,7 @@ const Index = () => {
           {loading ? (
             <div className="flex h-full flex-col items-center justify-center gap-3 text-muted-foreground">
               <Loader2 className="h-8 w-8 animate-spin text-primary" />
-              <p className="text-sm">Loading the latest 200 highlights from Dennis’ Readwise…</p>
+              <p className="text-sm">Loading the latest 300 highlights from Dennis’ Readwise…</p>
             </div>
           ) : error ? (
             <div className="flex h-full items-center justify-center p-6">
