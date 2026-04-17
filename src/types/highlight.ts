@@ -54,4 +54,6 @@ export interface CrossConnection {
   highlightId: number;
   relatedId: number;
   snippet: string;
+  score?: number;
+  sharedTerms?: string[];
 }
