@@ -38,6 +38,16 @@ interface ConnectionOpts {
   perNode?: number;
 }
 
+function sharedTermsBetween(a: string, b: string, max = 4): string[] {
+  const ta = tokenize(a);
+  const tb = tokenize(b);
+  const shared: string[] = [];
+  for (const t of ta) if (tb.has(t)) shared.push(t);
+  // Rank by length (longer = more meaningful), then alpha
+  shared.sort((x, y) => y.length - x.length || x.localeCompare(y));
+  return shared.slice(0, max);
+}
+
 function rankAndCap(
   highlights: Highlight[],
   cands: { i: number; j: number; score: number }[],
@@ -53,10 +63,16 @@ function rankAndCap(
     const b = highlights[c.j].id;
     if ((degree.get(a) || 0) >= perNode) continue;
     if ((degree.get(b) || 0) >= perNode) continue;
+    const hi = highlights[c.i];
+    const hj = highlights[c.j];
+    const textA = hi.text + " " + (hi.note || "");
+    const textB = hj.text + " " + (hj.note || "");
     result.push({
       highlightId: a,
       relatedId: b,
-      snippet: highlights[c.j].text.slice(0, 160),
+      snippet: hj.text.slice(0, 160),
+      score: c.score,
+      sharedTerms: sharedTermsBetween(textA, textB),
     });
     degree.set(a, (degree.get(a) || 0) + 1);
     degree.set(b, (degree.get(b) || 0) + 1);
