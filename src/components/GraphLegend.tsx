@@ -11,7 +11,10 @@ export function GraphLegend({ highlights }: Props) {
   const [open, setOpen] = useState(true);
 
   const sources = useMemo(() => {
-    const seen = new Map<number, { id: number; title: string; count: number }>();
+    const seen = new Map<
+      number,
+      { id: number; title: string; count: number; url: string | null }
+    >();
     for (const h of highlights) {
       const existing = seen.get(h.book.id);
       if (existing) existing.count += 1;
@@ -20,6 +23,7 @@ export function GraphLegend({ highlights }: Props) {
           id: h.book.id,
           title: h.book.title || "Unknown",
           count: 1,
+          url: h.book.source_url,
         });
     }
     const allIds = Array.from(seen.keys());
@@ -82,20 +86,40 @@ export function GraphLegend({ highlights }: Props) {
             Sources ({sources.length})
           </div>
           <ul className="max-h-48 space-y-1 overflow-y-auto pr-1">
-            {sources.map((s) => (
-              <li key={s.id} className="flex items-center gap-2">
-                <span
-                  className="h-2.5 w-2.5 flex-shrink-0 rounded-full"
-                  style={{ backgroundColor: s.color }}
-                />
-                <span className="truncate text-foreground/80" title={s.title}>
-                  {s.title}
-                </span>
-                <span className="ml-auto flex-shrink-0 text-[10px] text-muted-foreground/70">
-                  {s.count}
-                </span>
-              </li>
-            ))}
+            {sources.map((s) => {
+              const content = (
+                <>
+                  <span
+                    className="h-2.5 w-2.5 flex-shrink-0 rounded-full"
+                    style={{ backgroundColor: s.color }}
+                  />
+                  <span className="truncate text-foreground/80" title={s.title}>
+                    {s.title}
+                  </span>
+                  <span className="ml-auto flex-shrink-0 text-[10px] text-muted-foreground/70">
+                    {s.count}
+                  </span>
+                </>
+              );
+              return (
+                <li key={s.id}>
+                  {s.url ? (
+                    <a
+                      href={s.url}
+                      target="_blank"
+                      rel="noreferrer"
+                      className="-mx-1 flex items-center gap-2 rounded-sm px-1 py-0.5 hover:bg-accent hover:text-foreground"
+                    >
+                      {content}
+                    </a>
+                  ) : (
+                    <div className="-mx-1 flex cursor-default items-center gap-2 px-1 py-0.5">
+                      {content}
+                    </div>
+                  )}
+                </li>
+              );
+            })}
           </ul>
         </div>
       )}
