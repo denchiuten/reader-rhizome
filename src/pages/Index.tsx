@@ -6,6 +6,7 @@ import { Alert, AlertDescription, AlertTitle } from "@/components/ui/alert";
 import { Popover, PopoverContent, PopoverTrigger } from "@/components/ui/popover";
 import { HighlightGraph } from "@/components/HighlightGraph";
 import { HighlightDetail } from "@/components/HighlightDetail";
+import { ConnectionDetail } from "@/components/ConnectionDetail";
 import { CategoryFilter } from "@/components/CategoryFilter";
 import { TagFilter } from "@/components/TagFilter";
 import { GraphLegend } from "@/components/GraphLegend";
@@ -13,6 +14,11 @@ import { useReadwiseData } from "@/hooks/useReadwiseData";
 import { useIsMobile } from "@/hooks/use-mobile";
 import { useElementSize } from "@/hooks/useElementSize";
 import type { Highlight } from "@/types/highlight";
+
+type Selection =
+  | { kind: "highlight"; highlight: Highlight }
+  | { kind: "connection"; a: Highlight; b: Highlight; score?: number; sharedTerms?: string[] }
+  | null;
 
 const Index = () => {
   const {
