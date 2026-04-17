@@ -1,8 +1,14 @@
 
-Update the header in `src/pages/Index.tsx`:
+Update `src/components/HighlightDetail.tsx` so the "Open in..." link prefers the original article URL for article-type sources.
 
-1. Change the `<h1>` from "Highlight Graph" to "Dennis' Readwise Highlight Graph" (using a proper `'` apostrophe).
-2. Add a short description line directly underneath the title, e.g. *"An interactive network of related ideas from what I'm reading."*
-3. Keep the existing stats row (`headerStats`) below the description, with slightly tightened spacing so the header doesn't feel taller than necessary.
+**Current behavior:** The link uses `highlight.url || readwiseUrl`, where `readwiseUrl` points to the Readwise book review page. `highlight.url` (from Readwise) typically points to the highlight inside Readwise, not the original article.
 
-No other files need to change. The description matches the tone of the existing `<meta name="description">` in `index.html`.
+**Plan:**
+1. Use `highlight.book.source_url` as the preferred destination when the category is `articles` (and likely also for `tweets`, `podcasts`, `supplementals`) — i.e. anything that isn't a `books` source where there's no meaningful external URL.
+2. Fall back order:
+   - If `book.source_url` exists and category ≠ `books` → link to `book.source_url`, label **"Open original article"** (or "Open original" for non-articles).
+   - Else if `highlight.url` exists → link to it, label **"Open in Readwise"**.
+   - Else → link to the Readwise book review page, label **"Open in Readwise"**.
+3. Label adapts to category: "Open original article" for `articles`, "Open original" otherwise.
+
+No other files need to change. `source_url` is already on the `HighlightBook` type and populated by `src/lib/readwise.ts`.
