@@ -48,6 +48,12 @@ export function HighlightGraph({
     return m;
   }, [highlights]);
 
+  const highlightById = useMemo(() => {
+    const m = new Map<number, Highlight>();
+    for (const h of highlights) m.set(h.id, h);
+    return m;
+  }, [highlights]);
+
   const data: GraphData = useMemo(() => {
     const allBookIds = Array.from(new Set(highlights.map((h) => h.book.id)));
 
