@@ -38,8 +38,12 @@ const Index = () => {
   const isMobile = useIsMobile();
   const containerRef = useRef<HTMLDivElement>(null);
   const { width, height } = useElementSize(containerRef);
-  const [selected, setSelected] = useState<Highlight | null>(null);
+  const [selection, setSelection] = useState<Selection>(null);
   const [focusBookId, setFocusBookId] = useState<number | null>(null);
+
+  const selectedHighlight = selection?.kind === "highlight" ? selection.highlight : null;
+  const selectHighlight = (h: Highlight | null) =>
+    setSelection(h ? { kind: "highlight", highlight: h } : null);
 
   const sourceCount = useMemo(
     () => new Set(highlights.map((h) => h.book.id)).size,
