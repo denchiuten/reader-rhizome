@@ -1,4 +1,4 @@
-import { useEffect, useMemo, useRef } from "react";
+import { useEffect, useMemo, useRef, useState } from "react";
 import ForceGraph2D, { type ForceGraphMethods } from "react-force-graph-2d";
 import type { CrossConnection, GraphData, GraphLink, GraphNode, Highlight } from "@/types/highlight";
 import { CROSS_LINK_COLOR, colorForBook } from "@/lib/colors";
