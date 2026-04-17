@@ -4,7 +4,7 @@ import { findCrossConnectionsLocal } from "@/lib/connections";
 import type { CategoryKey } from "@/lib/categories";
 import type { CrossConnection, Highlight } from "@/types/highlight";
 
-const CACHE_PREFIX = "highlight-graph:cache:v4";
+const CACHE_PREFIX = "highlight-graph:cache:v5";
 const CACHE_TTL = 1000 * 60 * 60 * 6; // 6h
 
 interface CachedData {
