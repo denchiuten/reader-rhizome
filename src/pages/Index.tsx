@@ -90,7 +90,7 @@ const Index = () => {
           {loading ? (
             <div className="flex h-full flex-col items-center justify-center gap-3 text-muted-foreground">
               <Loader2 className="h-8 w-8 animate-spin text-primary" />
-              <p className="text-sm">Pulling your latest 200 highlights from Readwise…</p>
+              <p className="text-sm">Loading the latest 200 highlights from Dennis’ Readwise…</p>
             </div>
           ) : error ? (
             <div className="flex h-full items-center justify-center p-6">
