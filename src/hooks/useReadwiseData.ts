@@ -1,17 +1,51 @@
 import { useCallback, useEffect, useMemo, useRef, useState } from "react";
 import { toast } from "@/hooks/use-toast";
 import { fetchHighlights } from "@/lib/readwise";
-import { findCrossConnectionsLocal } from "@/lib/connections";
+import { fetchEmbeddings, type VectorMap } from "@/lib/embeddings";
+import {
+  findCrossConnectionsLocal,
+  findCrossConnectionsSemantic,
+} from "@/lib/connections";
 import type { CategoryKey } from "@/lib/categories";
 import type { CrossConnection, Highlight } from "@/types/highlight";
 
-const CACHE_KEY = "highlight-graph:cache:v7";
+const CACHE_KEY = "highlight-graph:cache:v8";
+const VECTOR_CACHE_KEY = "highlight-graph:vectors:v1";
 const CACHE_TTL = 1000 * 60 * 60 * 6; // 6h
 const DISPLAY_CAP = 200;
 
 interface CachedPool {
   highlights: Highlight[];
   fetchedAt: number;
+}
+
+interface CachedVectors {
+  // id -> vector
+  entries: Array<[number, number[]]>;
+  savedAt: number;
+}
+
+function loadVectorCache(): VectorMap {
+  try {
+    const raw = localStorage.getItem(VECTOR_CACHE_KEY);
+    if (!raw) return new Map();
+    const parsed = JSON.parse(raw) as CachedVectors;
+    return new Map(parsed.entries);
+  } catch {
+    return new Map();
+  }
+}
+
+function saveVectorCache(map: VectorMap) {
+  try {
+    const payload: CachedVectors = {
+      entries: Array.from(map.entries()),
+      savedAt: Date.now(),
+    };
+    localStorage.setItem(VECTOR_CACHE_KEY, JSON.stringify(payload));
+  } catch {
+    // quota — ignore
+  }
 }
 
 export function useReadwiseData() {
@@ -23,6 +57,8 @@ export function useReadwiseData() {
   const [categories, setCategories] = useState<CategoryKey[]>([]);
   const [tags, setTags] = useState<string[]>([]);
   const [connections, setConnections] = useState<CrossConnection[]>([]);
+  const [vectors, setVectors] = useState<VectorMap>(() => loadVectorCache());
+  const [vectorsReady, setVectorsReady] = useState<boolean>(false);
 
   const reqIdRef = useRef(0);
 
@@ -37,12 +73,12 @@ export function useReadwiseData() {
       .filter(
         (h) =>
           tags.length === 0 ||
-          (h.book.tags || []).some((t) => tags.includes(t)), // OR within tags
+          (h.book.tags || []).some((t) => tags.includes(t)),
       )
       .slice(0, DISPLAY_CAP);
   }, [allHighlights, categories, tags]);
 
-  // Recompute connections whenever the filtered set changes.
+  // Recompute connections whenever the filtered set or vectors change.
   useEffect(() => {
     if (highlights.length === 0) {
       setConnections([]);
@@ -52,17 +88,53 @@ export function useReadwiseData() {
     setConnectionsLoading(true);
     const id = ++reqIdRef.current;
     const handle = setTimeout(() => {
-      const conns = findCrossConnectionsLocal(highlights, {
-        minScore: 0.08,
-        maxEdges: 60,
-        perNode: 2,
-      });
+      // Use semantic if we have vectors for most of the filtered highlights
+      const covered = highlights.filter((h) => vectors.has(h.id)).length;
+      const useSemantic = vectorsReady && covered / highlights.length >= 0.6;
+      const conns = useSemantic
+        ? findCrossConnectionsSemantic(highlights, vectors, {
+            minScore: 0.55,
+            maxEdges: 60,
+            perNode: 2,
+          })
+        : findCrossConnectionsLocal(highlights, {
+            minScore: 0.08,
+            maxEdges: 60,
+            perNode: 2,
+          });
       if (id !== reqIdRef.current) return;
       setConnections(conns);
       setConnectionsLoading(false);
     }, 30);
     return () => clearTimeout(handle);
-  }, [highlights]);
+  }, [highlights, vectors, vectorsReady]);
+
+  // Kick off embedding fetch whenever the full pool changes.
+  useEffect(() => {
+    if (allHighlights.length === 0) return;
+    let cancelled = false;
+    (async () => {
+      try {
+        const map = await fetchEmbeddings(allHighlights);
+        if (cancelled) return;
+        setVectors(map);
+        setVectorsReady(true);
+        saveVectorCache(map);
+      } catch (err) {
+        console.warn("Embedding fetch failed; using lexical fallback.", err);
+        if (!cancelled) {
+          setVectorsReady(false);
+          toast({
+            title: "Using lexical fallback",
+            description: "Couldn't compute semantic connections.",
+          });
+        }
+      }
+    })();
+    return () => {
+      cancelled = true;
+    };
+  }, [allHighlights]);
 
   const load = useCallback(async (force = false) => {
     setLoading(true);
@@ -99,7 +171,6 @@ export function useReadwiseData() {
       }
     } catch (err) {
       const msg = err instanceof Error ? err.message : "Failed to fetch highlights";
-      // Graceful fallback: keep showing cached data if we have it.
       if (cached) {
         setAllHighlights(cached.highlights);
         setFetchedAt(cached.fetchedAt);

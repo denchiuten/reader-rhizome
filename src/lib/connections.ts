@@ -32,28 +32,19 @@ function jaccard(a: Set<string>, b: Set<string>): number {
   return inter / union;
 }
 
-export function findCrossConnectionsLocal(
+interface ConnectionOpts {
+  minScore?: number;
+  maxEdges?: number;
+  perNode?: number;
+}
+
+function rankAndCap(
   highlights: Highlight[],
-  options: { minScore?: number; maxEdges?: number; perNode?: number } = {},
+  cands: { i: number; j: number; score: number }[],
+  maxEdges: number,
+  perNode: number,
 ): CrossConnection[] {
-  const { minScore = 0.08, maxEdges = 60, perNode = 2 } = options;
-  const tokens = highlights.map((h) => tokenize(h.text + " " + (h.note || "")));
-
-  type Cand = { i: number; j: number; score: number };
-  const cands: Cand[] = [];
-
-  for (let i = 0; i < highlights.length; i++) {
-    for (let j = i + 1; j < highlights.length; j++) {
-      // Only cross-source
-      if (highlights[i].book.id === highlights[j].book.id) continue;
-      const score = jaccard(tokens[i], tokens[j]);
-      if (score >= minScore) cands.push({ i, j, score });
-    }
-  }
-
   cands.sort((a, b) => b.score - a.score);
-
-  // Cap per-node to avoid hub explosion
   const degree = new Map<number, number>();
   const result: CrossConnection[] = [];
   for (const c of cands) {
@@ -71,4 +62,57 @@ export function findCrossConnectionsLocal(
     degree.set(b, (degree.get(b) || 0) + 1);
   }
   return result;
+}
+
+export function findCrossConnectionsLocal(
+  highlights: Highlight[],
+  options: ConnectionOpts = {},
+): CrossConnection[] {
+  const { minScore = 0.08, maxEdges = 60, perNode = 2 } = options;
+  const tokens = highlights.map((h) => tokenize(h.text + " " + (h.note || "")));
+
+  const cands: { i: number; j: number; score: number }[] = [];
+  for (let i = 0; i < highlights.length; i++) {
+    for (let j = i + 1; j < highlights.length; j++) {
+      if (highlights[i].book.id === highlights[j].book.id) continue;
+      const score = jaccard(tokens[i], tokens[j]);
+      if (score >= minScore) cands.push({ i, j, score });
+    }
+  }
+  return rankAndCap(highlights, cands, maxEdges, perNode);
+}
+
+function cosine(a: number[], b: number[]): number {
+  let dot = 0;
+  let na = 0;
+  let nb = 0;
+  const len = Math.min(a.length, b.length);
+  for (let i = 0; i < len; i++) {
+    dot += a[i] * b[i];
+    na += a[i] * a[i];
+    nb += b[i] * b[i];
+  }
+  if (na === 0 || nb === 0) return 0;
+  return dot / (Math.sqrt(na) * Math.sqrt(nb));
+}
+
+export function findCrossConnectionsSemantic(
+  highlights: Highlight[],
+  vectors: Map<number, number[]>,
+  options: ConnectionOpts = {},
+): CrossConnection[] {
+  const { minScore = 0.55, maxEdges = 60, perNode = 2 } = options;
+  const cands: { i: number; j: number; score: number }[] = [];
+  for (let i = 0; i < highlights.length; i++) {
+    const va = vectors.get(highlights[i].id);
+    if (!va) continue;
+    for (let j = i + 1; j < highlights.length; j++) {
+      if (highlights[i].book.id === highlights[j].book.id) continue;
+      const vb = vectors.get(highlights[j].id);
+      if (!vb) continue;
+      const score = cosine(va, vb);
+      if (score >= minScore) cands.push({ i, j, score });
+    }
+  }
+  return rankAndCap(highlights, cands, maxEdges, perNode);
 }

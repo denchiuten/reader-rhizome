@@ -3,3 +3,5 @@ project_id = "bvdhiappidkydpnwzkcg"
 [functions.readwise-fetch]
 verify_jwt = false
 
+[functions.embed-highlights]
+verify_jwt = false
