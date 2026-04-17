@@ -1,11 +1,21 @@
-import { useEffect, useLayoutEffect, useRef, useState } from "react";
+import { useEffect, useLayoutEffect, useMemo, useRef, useState } from "react";
 import { ChevronDown, ChevronUp, ExternalLink, X } from "lucide-react";
 import { Button } from "@/components/ui/button";
 import { ScrollArea } from "@/components/ui/scroll-area";
 import { Separator } from "@/components/ui/separator";
 import { Badge } from "@/components/ui/badge";
+import { Markdown } from "@/components/Markdown";
 import { categoryIcon } from "@/lib/categories";
 import type { CrossConnection, Highlight } from "@/types/highlight";
+
+// Strip markdown link/emphasis syntax for compact list previews
+function plainText(md: string): string {
+  return md
+    .replace(/!\[([^\]]*)\]\([^)]*\)/g, "$1") // images
+    .replace(/\[([^\]]+)\]\([^)]*\)/g, "$1") // links
+    .replace(/`([^`]+)`/g, "$1") // inline code
+    .replace(/[*_~]{1,3}([^*_~]+)[*_~]{1,3}/g, "$1"); // emphasis
+}
 
 function CollapsibleSummary({ summary }: { summary: string }) {
   const [expanded, setExpanded] = useState(false);
@@ -131,17 +141,15 @@ export function HighlightDetail({
       <ScrollArea className="flex-1 [&>[data-radix-scroll-area-viewport]>div]:!block">
         <div className="w-full space-y-6 p-4">
           <section>
-            <p className="whitespace-pre-wrap text-[15px] leading-relaxed text-foreground">
+            <Markdown className="text-[15px] leading-relaxed text-foreground">
               {highlight.text}
-            </p>
+            </Markdown>
             {highlight.note && (
               <div className="mt-3 rounded-md border border-accent/30 bg-accent/10 p-3">
                 <p className="mb-1 text-xs font-medium uppercase tracking-wider text-accent">
                   Note
                 </p>
-                <p className="whitespace-pre-wrap text-sm text-foreground/90">
-                  {highlight.note}
-                </p>
+                <Markdown className="text-sm text-foreground/90">{highlight.note}</Markdown>
               </div>
             )}
             {highlight.tags.length > 0 && (
@@ -189,14 +197,14 @@ export function HighlightDetail({
                       onClick={() => onSelect(r)}
                       className="block w-full rounded-md border border-border bg-secondary/40 p-3 text-left transition hover:border-primary/50 hover:bg-secondary"
                     >
-                      <p className="line-clamp-3 text-sm text-foreground/90">{r.text}</p>
+                      <p className="line-clamp-3 text-sm text-foreground/90">{plainText(r.text)}</p>
                       <p className="mt-1.5 truncate text-xs text-muted-foreground">
                         {r.book.title}
                         {r.book.author ? ` · ${r.book.author}` : ""}
                       </p>
                       {snippet && snippet !== r.text && (
                         <p className="mt-1 line-clamp-1 text-xs italic text-muted-foreground/70">
-                          ↳ {snippet}
+                          ↳ {plainText(snippet)}
                         </p>
                       )}
                     </button>
@@ -220,7 +228,7 @@ export function HighlightDetail({
                       onClick={() => onSelect(r)}
                       className="block w-full rounded-md p-2 text-left transition hover:bg-secondary/60"
                     >
-                      <p className="line-clamp-2 text-sm text-foreground/80">{r.text}</p>
+                      <p className="line-clamp-2 text-sm text-foreground/80">{plainText(r.text)}</p>
                     </button>
                   ))}
                 </div>
