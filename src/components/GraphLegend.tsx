@@ -6,10 +6,17 @@ import type { Highlight } from "@/types/highlight";
 interface Props {
   highlights: Highlight[];
   onFocusSource?: (bookId: number) => void;
+  defaultOpen?: boolean;
+  compact?: boolean;
 }
 
-export function GraphLegend({ highlights, onFocusSource }: Props) {
-  const [open, setOpen] = useState(true);
+export function GraphLegend({
+  highlights,
+  onFocusSource,
+  defaultOpen = true,
+  compact = false,
+}: Props) {
+  const [open, setOpen] = useState(defaultOpen);
 
   const sources = useMemo(() => {
     const seen = new Map<
