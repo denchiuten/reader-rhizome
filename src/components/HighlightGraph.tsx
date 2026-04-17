@@ -3,10 +3,18 @@ import ForceGraph2D, { type ForceGraphMethods } from "react-force-graph-2d";
 import type { CrossConnection, GraphData, GraphLink, GraphNode, Highlight } from "@/types/highlight";
 import { CROSS_LINK_COLOR, colorForBook } from "@/lib/colors";
 
+interface ConnectionSelection {
+  a: Highlight;
+  b: Highlight;
+  score?: number;
+  sharedTerms?: string[];
+}
+
 interface Props {
   highlights: Highlight[];
   connections: CrossConnection[];
   onSelect: (h: Highlight | null) => void;
+  onSelectConnection?: (conn: ConnectionSelection) => void;
   selectedId: number | null;
   width: number;
   height: number;
@@ -20,6 +28,7 @@ export function HighlightGraph({
   highlights,
   connections,
   onSelect,
+  onSelectConnection,
   selectedId,
   width,
   height,
