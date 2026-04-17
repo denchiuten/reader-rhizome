@@ -155,7 +155,7 @@ export function HighlightGraph({
   }, []);
 
   return (
-    <div ref={wrapperRef} style={{ width, height }}>
+    <div ref={wrapperRef} style={{ width, height, position: "relative" }}>
     <ForceGraph2D
       ref={fgRef as never}
       graphData={data}
