@@ -125,11 +125,11 @@ export function HighlightDetail({
               })()}
               <span>{highlight.book.category || "Highlight"}</span>
             </p>
-            <h2 className="mt-1 truncate text-base font-semibold text-foreground">
+            <h2 className="mt-1 break-words text-base font-semibold text-foreground">
               {highlight.book.title}
             </h2>
             {highlight.book.author && (
-              <p className="truncate text-sm text-muted-foreground">{highlight.book.author}</p>
+              <p className="break-words text-sm text-muted-foreground">{highlight.book.author}</p>
             )}
           </div>
         </div>
