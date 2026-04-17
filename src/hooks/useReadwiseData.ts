@@ -1,9 +1,10 @@
-import { useCallback, useEffect, useState } from "react";
+import { useCallback, useEffect, useRef, useState } from "react";
 import { fetchHighlights } from "@/lib/readwise";
 import { findCrossConnectionsLocal } from "@/lib/connections";
+import type { CategoryKey } from "@/lib/categories";
 import type { CrossConnection, Highlight } from "@/types/highlight";
 
-const CACHE_KEY = "highlight-graph:cache:v3";
+const CACHE_PREFIX = "highlight-graph:cache:v4";
 const CACHE_TTL = 1000 * 60 * 60 * 6; // 6h
 
 interface CachedData {
@@ -20,6 +21,12 @@ interface State {
   progress: { done: number; total: number };
   error: string | null;
   fetchedAt: number | null;
+  categories: CategoryKey[];
+}
+
+function cacheKey(categories: CategoryKey[]): string {
+  const suffix = categories.length === 0 ? "all" : [...categories].sort().join(",");
+  return `${CACHE_PREFIX}:${suffix}`;
 }
 
 export function useReadwiseData() {
@@ -31,17 +38,22 @@ export function useReadwiseData() {
     progress: { done: 0, total: 0 },
     error: null,
     fetchedAt: null,
+    categories: [],
   });
 
-  const load = useCallback(async (force = false) => {
-    setState((s) => ({ ...s, loading: true, error: null }));
+  const reqIdRef = useRef(0);
+
+  const load = useCallback(async (categories: CategoryKey[], force = false) => {
+    const reqId = ++reqIdRef.current;
+    setState((s) => ({ ...s, loading: true, error: null, categories }));
 
     if (!force) {
       try {
-        const raw = localStorage.getItem(CACHE_KEY);
+        const raw = localStorage.getItem(cacheKey(categories));
         if (raw) {
           const cached: CachedData = JSON.parse(raw);
           if (Date.now() - cached.fetchedAt < CACHE_TTL) {
+            if (reqId !== reqIdRef.current) return;
             setState({
               highlights: cached.highlights,
               connections: cached.connections,
@@ -50,6 +62,7 @@ export function useReadwiseData() {
               progress: { done: cached.highlights.length, total: cached.highlights.length },
               error: null,
               fetchedAt: cached.fetchedAt,
+              categories,
             });
             return;
           }
@@ -60,7 +73,8 @@ export function useReadwiseData() {
     }
 
     try {
-      const highlights = await fetchHighlights();
+      const highlights = await fetchHighlights(categories);
+      if (reqId !== reqIdRef.current) return;
       setState((s) => ({
         ...s,
         highlights,
@@ -70,8 +84,8 @@ export function useReadwiseData() {
         fetchedAt: Date.now(),
       }));
 
-      // Local similarity — fast, runs synchronously but yield to UI first
       await new Promise((r) => setTimeout(r, 30));
+      if (reqId !== reqIdRef.current) return;
       const connections = findCrossConnectionsLocal(highlights, {
         minScore: 0.08,
         maxEdges: 60,
@@ -79,6 +93,7 @@ export function useReadwiseData() {
       });
 
       const fetchedAt = Date.now();
+      if (reqId !== reqIdRef.current) return;
       setState((s) => ({
         ...s,
         connections,
@@ -88,21 +103,31 @@ export function useReadwiseData() {
       }));
       try {
         localStorage.setItem(
-          CACHE_KEY,
+          cacheKey(categories),
           JSON.stringify({ highlights, connections, fetchedAt } as CachedData),
         );
       } catch {
         // ignore quota
       }
     } catch (err) {
+      if (reqId !== reqIdRef.current) return;
       const msg = err instanceof Error ? err.message : "Failed to fetch highlights";
       setState((s) => ({ ...s, loading: false, connectionsLoading: false, error: msg }));
     }
   }, []);
 
   useEffect(() => {
-    load(false);
+    load([], false);
   }, [load]);
 
-  return { ...state, refresh: () => load(true) };
+  const setCategories = useCallback(
+    (cats: CategoryKey[]) => {
+      load(cats, false);
+    },
+    [load],
+  );
+
+  const refresh = useCallback(() => load(state.categories, true), [load, state.categories]);
+
+  return { ...state, refresh, setCategories };
 }

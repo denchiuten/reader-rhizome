@@ -1,9 +1,10 @@
 import { useEffect, useLayoutEffect, useRef, useState } from "react";
-import { BookOpen, ChevronDown, ChevronUp, ExternalLink, FileText, Headphones, Highlighter, Twitter, X } from "lucide-react";
+import { ChevronDown, ChevronUp, ExternalLink, X } from "lucide-react";
 import { Button } from "@/components/ui/button";
 import { ScrollArea } from "@/components/ui/scroll-area";
 import { Separator } from "@/components/ui/separator";
 import { Badge } from "@/components/ui/badge";
+import { categoryIcon } from "@/lib/categories";
 import type { CrossConnection, Highlight } from "@/types/highlight";
 
 function CollapsibleSummary({ summary }: { summary: string }) {
@@ -109,13 +110,8 @@ export function HighlightDetail({
           <div className="min-w-0 flex-1">
             <p className="flex items-center gap-1 text-xs uppercase tracking-wider text-muted-foreground">
               {(() => {
-                const cat = highlight.book.category;
-                const iconClass = "h-3 w-3";
-                if (cat === "books") return <BookOpen className={iconClass} />;
-                if (cat === "articles") return <FileText className={iconClass} />;
-                if (cat === "tweets") return <Twitter className={iconClass} />;
-                if (cat === "podcasts") return <Headphones className={iconClass} />;
-                return <Highlighter className={iconClass} />;
+                const Icon = categoryIcon(highlight.book.category);
+                return <Icon className="h-3 w-3" />;
               })()}
               <span>{highlight.book.category || "Highlight"}</span>
             </p>

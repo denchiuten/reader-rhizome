@@ -5,6 +5,8 @@ const corsHeaders = {
 };
 
 const READWISE_BASE = "https://readwise.io/api/v2";
+const TARGET = 200;
+const MAX_HIGHLIGHT_PAGES = 10;
 
 interface RWHighlight {
   id: number;
@@ -50,31 +52,51 @@ Deno.serve(async (req) => {
     );
   }
 
+  let categories: string[] | undefined;
   try {
-    // Fetch 200 most recent highlights (2 pages of 100)
-    const [page1, page2] = await Promise.all([
-      rw("/highlights/?page_size=100&page=1", token),
-      rw("/highlights/?page_size=100&page=2", token),
-    ]);
-    const highlights: RWHighlight[] = [...(page1.results || []), ...(page2.results || [])];
+    if (req.method === "POST") {
+      const body = await req.json().catch(() => ({}));
+      if (Array.isArray(body?.categories) && body.categories.length > 0) {
+        categories = body.categories.filter((c: unknown): c is string => typeof c === "string");
+      }
+    }
+  } catch {
+    // ignore
+  }
+  const filterSet = categories && categories.length > 0 ? new Set(categories) : null;
 
-    // Fetch books for these highlights
-    const bookIds = Array.from(new Set(highlights.map((h) => h.book_id)));
-    const books: Record<number, RWBook> = {};
-    // Books endpoint paginates; fetch all needed via page_size=1000
+  try {
+    // Fetch books once (paginated). 1000 per page covers most users.
+    const booksById: Record<number, RWBook> = {};
     let bookPage = 1;
     while (true) {
       const data = await rw(`/books/?page_size=1000&page=${bookPage}`, token);
       for (const b of data.results as RWBook[]) {
-        if (bookIds.includes(b.id)) books[b.id] = b;
+        booksById[b.id] = b;
       }
-      if (!data.next || Object.keys(books).length >= bookIds.length) break;
+      if (!data.next) break;
       bookPage++;
       if (bookPage > 10) break;
     }
 
-    const result = highlights.map((h) => {
-      const b = books[h.book_id];
+    // Fetch highlights pages until we've collected TARGET matching entries
+    const collected: RWHighlight[] = [];
+    for (let page = 1; page <= MAX_HIGHLIGHT_PAGES; page++) {
+      const data = await rw(`/highlights/?page_size=100&page=${page}`, token);
+      const results: RWHighlight[] = data.results || [];
+      for (const h of results) {
+        if (filterSet) {
+          const cat = booksById[h.book_id]?.category;
+          if (!cat || !filterSet.has(cat)) continue;
+        }
+        collected.push(h);
+        if (collected.length >= TARGET) break;
+      }
+      if (collected.length >= TARGET || !data.next) break;
+    }
+
+    const result = collected.map((h) => {
+      const b = booksById[h.book_id];
       return {
         id: h.id,
         text: h.text,
