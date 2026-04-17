@@ -1,9 +1,11 @@
-import { ExternalLink, Sparkles, X } from "lucide-react";
+import { ExternalLink, Loader2, Sparkles, Wand2, X } from "lucide-react";
 import { Button } from "@/components/ui/button";
 import { ScrollArea } from "@/components/ui/scroll-area";
 import { Separator } from "@/components/ui/separator";
+import { Skeleton } from "@/components/ui/skeleton";
 import { Markdown } from "@/components/Markdown";
 import { categoryIcon } from "@/lib/categories";
+import { useConnectionSummary } from "@/hooks/useConnectionSummary";
 import type { Highlight } from "@/types/highlight";
 
 interface Props {
