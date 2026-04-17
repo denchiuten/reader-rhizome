@@ -40,6 +40,7 @@ export interface GraphLink {
 export interface GraphData {
   nodes: GraphNode[];
   links: GraphLink[];
+  labelNodeIds: Set<number>;
 }
 
 export interface CrossConnection {
