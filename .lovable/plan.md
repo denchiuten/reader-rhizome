@@ -1,28 +1,56 @@
 
-Two small mobile fixes.
+## Plan: Semantic embeddings with OpenAI + pgvector
 
-## 1. Compact mobile legend
+Replace the Jaccard word-overlap algorithm with OpenAI embeddings, stored in Supabase with `pgvector`. Embed each highlight once, recompute similarities client-side from cached vectors.
 
-Currently `Index.tsx` hides `<GraphLegend />` entirely on mobile. Change:
-- Render the legend on mobile too.
-- In `GraphLegend.tsx`, accept the `isMobile` context (or a `defaultOpen` prop) and:
-  - Default `open` to `false` on mobile, `true` on desktop.
-  - On mobile, shrink the panel: narrower width (`w-44` instead of `w-56`), and when collapsed show just the "Legend" pill — no source list taking space.
-  - Keep position `top-3 right-3`.
+### 1. Database (migration)
+- Enable `pgvector` extension.
+- New table `highlight_embeddings`:
+  - `highlight_id bigint primary key`
+  - `text_hash text not null` (sha256 of `text + note` — re-embed if content changes)
+  - `embedding vector(1536)` (matches `text-embedding-3-small`)
+  - `model text not null default 'text-embedding-3-small'`
+  - `created_at timestamptz default now()`
+- RLS: enable, allow `select` to anon (read-only public graph, same posture as current app), no insert/update from clients (only the edge function with service role writes).
+- Index: `ivfflat (embedding vector_cosine_ops)` for future SQL-side similarity (not used initially, but cheap to add).
 
-Simplest approach: pass `defaultOpen={!isMobile}` from `Index.tsx` and add a `compact` prop that tightens width + max-height of the source list (`max-h-32` on mobile vs `max-h-48`).
+### 2. Secret
+- Add `OPENAI_API_KEY` via the secret tool. Wait for user to provide before deploying the function.
 
-## 2. Double-X close button on mobile
+### 3. New edge function: `embed-highlights`
+- Input: `{ highlights: [{ id, text, note }] }` from the client (after `readwise-fetch` returns).
+- For each highlight: compute `text_hash`, look up existing row.
+  - If hash matches → reuse cached embedding.
+  - If missing or hash differs → batch into OpenAI `text-embedding-3-small` calls (up to 100 inputs per request), upsert into `highlight_embeddings`.
+- Returns: `{ embeddings: [{ id, vector: number[] }] }`.
+- Same CORS + IP rate limit pattern as `readwise-fetch`.
+- Uses service role client to bypass RLS on writes.
 
-The screenshot shows two overlapping X icons on the highlight detail close button. Likely cause in `HighlightDetail.tsx`: a custom `<X />` icon is rendered inside a Radix `DialogClose` / `SheetClose` that already injects its own built-in close X. Need to inspect `HighlightDetail.tsx` to confirm which primitive it's using and remove the duplicate — either drop the manual `<X />` or pass the appropriate prop to suppress the built-in one (e.g. `SheetContent` from shadcn renders a default close button; a custom one inside it doubles up).
+### 4. Client changes
+- `src/lib/embeddings.ts` (new): `fetchEmbeddings(highlights)` wrapper for the function.
+- `src/lib/connections.ts`: add `findCrossConnectionsSemantic(highlights, vectorsById, { minScore, maxEdges, perNode })` using cosine similarity. Same per-node cap and edge cap logic. Default `minScore` ~0.55 for `text-embedding-3-small` (tunable).
+- `src/hooks/useReadwiseData.ts`:
+  - After highlights load, call `fetchEmbeddings` once for the full pool (not the filtered view) and cache vectors in `localStorage` keyed by `highlight_id` + `text_hash`.
+  - Filtered-view effect uses `findCrossConnectionsSemantic` with the cached vectors. Falls back to Jaccard if embeddings unavailable (offline / function error).
+  - Bump `CACHE_KEY` to `v8`.
 
-Fix: keep one close button — prefer the custom one (consistent styling) and either:
-- Use a plain `<button>` instead of `SheetClose`/`DialogClose` wrapping, OR
-- Override the shadcn `SheetContent` to not render its default close (or use `DialogPrimitive.Content` directly).
+### 5. UX
+- Show a small "Computing connections…" state while the first embedding fetch is in flight (reuse existing `connectionsLoading`).
+- Toast on embedding failure: "Using lexical fallback for connections."
 
-I'll confirm exact source once in default mode and apply the minimal change.
+### Cost / scale notes
+- 500 highlights × ~100 tokens avg ≈ 50k tokens ≈ **$0.001** per full re-embed. Practically free.
+- Subsequent loads: zero new embeddings unless highlights change.
 
-## Files
-- `src/components/GraphLegend.tsx` — add `defaultOpen` + `compact` props
-- `src/pages/Index.tsx` — render legend on mobile with mobile-tuned props
-- `src/components/HighlightDetail.tsx` — remove duplicate close X
+### Files
+- `supabase/migrations/<new>.sql` — pgvector + table + RLS
+- `supabase/functions/embed-highlights/index.ts` — new
+- `supabase/config.toml` — add `[functions.embed-highlights]` block with `verify_jwt = false`
+- `src/lib/embeddings.ts` — new
+- `src/lib/connections.ts` — add semantic variant, keep Jaccard as fallback
+- `src/hooks/useReadwiseData.ts` — wire embeddings + caching
+
+### Open question before I build
+Confirm the model — I'm proposing `text-embedding-3-small` (1536-dim, $0.02/1M tokens, strong quality, cheap). Alternative is `text-embedding-3-large` (3072-dim, ~6x cost, marginal quality gain at this scale). I'll default to `-small` unless you say otherwise.
+
+Once you approve, I'll request the `OPENAI_API_KEY` secret first, then build.
