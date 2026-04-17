@@ -26,7 +26,7 @@ export function useReadwiseData() {
 
   const reqIdRef = useRef(0);
 
-  // Filter pool: category AND, tags OR (book has any of selected)
+  // Filter pool: categories OR, tags OR (highlight matches any selected)
   const highlights = useMemo(() => {
     return allHighlights
       .filter(
