@@ -35,15 +35,31 @@ interface CachedBook extends Omit<RWBook, "tags"> {
 }
 
 async function rw(path: string, token: string, base = READWISE_BASE): Promise<any> {
-  const res = await fetch(`${base}${path}`, {
-    headers: { Authorization: `Token ${token}` },
-  });
-  if (!res.ok) {
-    const body = await res.text();
-    throw new Error(`Readwise ${path} failed [${res.status}]: ${body.slice(0, 200)}`);
+  const url = `${base}${path}`;
+  const maxAttempts = 3;
+  for (let attempt = 1; attempt <= maxAttempts; attempt++) {
+    const res = await fetch(url, {
+      headers: { Authorization: `Token ${token}` },
+    });
+    if (res.status === 429 && attempt < maxAttempts) {
+      const body = await res.text();
+      const match = body.match(/in (\d+) seconds/);
+      const hinted = match ? parseInt(match[1], 10) : 5;
+      // Cap waits so we don't blow the function timeout
+      const waitMs = Math.min(hinted, 8) * 1000;
+      console.warn(`Readwise 429 on ${path}; waiting ${waitMs}ms (attempt ${attempt}/${maxAttempts})`);
+      await new Promise((r) => setTimeout(r, waitMs));
+      continue;
+    }
+    if (!res.ok) {
+      const body = await res.text();
+      throw new Error(`Readwise ${path} failed [${res.status}]: ${body.slice(0, 200)}`);
+    }
+    return res.json();
   }
-  return res.json();
+  throw new Error(`Readwise ${path} failed after ${maxAttempts} attempts (rate limited)`);
 }
+
 
 async function fetchReaderSummaries(token: string, neededUrls: Set<string>): Promise<Map<string, string>> {
   const map = new Map<string, string>();

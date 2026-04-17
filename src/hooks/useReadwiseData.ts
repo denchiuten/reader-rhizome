@@ -45,6 +45,7 @@ export function useReadwiseData() {
   });
 
   const reqIdRef = useRef(0);
+  const debounceRef = useRef<ReturnType<typeof setTimeout> | null>(null);
 
   const load = useCallback(
     async (categories: CategoryKey[], tags: string[], force = false) => {
@@ -127,18 +128,28 @@ export function useReadwiseData() {
     load([], [], false);
   }, [load]);
 
+  const scheduleLoad = useCallback(
+    (cats: CategoryKey[], tags: string[]) => {
+      if (debounceRef.current) clearTimeout(debounceRef.current);
+      debounceRef.current = setTimeout(() => load(cats, tags, false), 350);
+    },
+    [load],
+  );
+
   const setCategories = useCallback(
     (cats: CategoryKey[]) => {
-      load(cats, state.tags, false);
+      setState((s) => ({ ...s, categories: cats }));
+      scheduleLoad(cats, state.tags);
     },
-    [load, state.tags],
+    [scheduleLoad, state.tags],
   );
 
   const setTags = useCallback(
     (tags: string[]) => {
-      load(state.categories, tags, false);
+      setState((s) => ({ ...s, tags }));
+      scheduleLoad(state.categories, tags);
     },
-    [load, state.categories],
+    [scheduleLoad, state.categories],
   );
 
   const refresh = useCallback(
