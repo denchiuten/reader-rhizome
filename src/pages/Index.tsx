@@ -8,6 +8,7 @@ import { HighlightGraph } from "@/components/HighlightGraph";
 import { HighlightDetail } from "@/components/HighlightDetail";
 import { CategoryFilter } from "@/components/CategoryFilter";
 import { TagFilter } from "@/components/TagFilter";
+import { GraphLegend } from "@/components/GraphLegend";
 import { useReadwiseData } from "@/hooks/useReadwiseData";
 import { useIsMobile } from "@/hooks/use-mobile";
 import { useElementSize } from "@/hooks/useElementSize";
@@ -141,16 +142,19 @@ const Index = () => {
               No highlights found.
             </div>
           ) : width > 0 && height > 0 ? (
-            <HighlightGraph
-              highlights={highlights}
-              connections={connections}
-              onSelect={setSelected}
-              selectedId={selected?.id ?? null}
-              width={width}
-              height={height}
-              simplified={isMobile}
-              maxNodes={isMobile ? 60 : 999}
-            />
+            <>
+              <HighlightGraph
+                highlights={highlights}
+                connections={connections}
+                onSelect={setSelected}
+                selectedId={selected?.id ?? null}
+                width={width}
+                height={height}
+                simplified={isMobile}
+                maxNodes={isMobile ? 60 : 999}
+              />
+              {!isMobile && <GraphLegend highlights={highlights} />}
+            </>
           ) : null}
 
           {fetchedAt && !loading && (
