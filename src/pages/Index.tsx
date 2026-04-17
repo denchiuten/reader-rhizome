@@ -150,6 +150,26 @@ const Index = () => {
               Updated {new Date(fetchedAt).toLocaleTimeString()}
             </div>
           )}
+
+          <footer className="absolute bottom-3 right-3 flex items-center gap-3 text-[10px] uppercase tracking-wider text-muted-foreground/70">
+            <span>Dennis Chiu</span>
+            <a
+              href="https://www.linkedin.com/in/dchiuten/"
+              target="_blank"
+              rel="noreferrer"
+              className="transition-colors hover:text-foreground"
+            >
+              LinkedIn
+            </a>
+            <a
+              href="https://github.com/denchiuten"
+              target="_blank"
+              rel="noreferrer"
+              className="transition-colors hover:text-foreground"
+            >
+              GitHub
+            </a>
+          </footer>
         </div>
 
         {/* Desktop side panel */}
