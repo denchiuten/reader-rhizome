@@ -7,6 +7,7 @@ import { Popover, PopoverContent, PopoverTrigger } from "@/components/ui/popover
 import { HighlightGraph } from "@/components/HighlightGraph";
 import { HighlightDetail } from "@/components/HighlightDetail";
 import { CategoryFilter } from "@/components/CategoryFilter";
+import { TagFilter } from "@/components/TagFilter";
 import { useReadwiseData } from "@/hooks/useReadwiseData";
 import { useIsMobile } from "@/hooks/use-mobile";
 import { useElementSize } from "@/hooks/useElementSize";
@@ -24,6 +25,8 @@ const Index = () => {
     refresh,
     categories,
     setCategories,
+    tags,
+    setTags,
   } = useReadwiseData();
   const isMobile = useIsMobile();
   const containerRef = useRef<HTMLDivElement>(null);
@@ -86,10 +89,15 @@ const Index = () => {
             An interactive network of related ideas from what I’m reading.
           </p>
           <div className="mt-1">{headerStats}</div>
-          <div className="mt-2">
+          <div className="mt-2 flex flex-wrap items-center gap-2">
             <CategoryFilter
               selected={categories}
               onChange={setCategories}
+              disabled={loading || connectionsLoading}
+            />
+            <TagFilter
+              selected={tags}
+              onChange={setTags}
               disabled={loading || connectionsLoading}
             />
           </div>

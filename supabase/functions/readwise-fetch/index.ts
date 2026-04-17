@@ -27,6 +27,11 @@ interface RWBook {
   source_url: string | null;
   cover_image_url: string | null;
   summary: string | null;
+  tags?: { name: string }[];
+}
+
+interface CachedBook extends Omit<RWBook, "tags"> {
+  tags: string[];
 }
 
 async function rw(path: string, token: string, base = READWISE_BASE): Promise<any> {
@@ -40,7 +45,6 @@ async function rw(path: string, token: string, base = READWISE_BASE): Promise<an
   return res.json();
 }
 
-// Fetch summaries from the Reader v3 API and key them by source_url for matching
 async function fetchReaderSummaries(token: string, neededUrls: Set<string>): Promise<Map<string, string>> {
   const map = new Map<string, string>();
   if (neededUrls.size === 0) return map;
@@ -64,6 +68,24 @@ async function fetchReaderSummaries(token: string, neededUrls: Set<string>): Pro
   return map;
 }
 
+async function fetchAllBooks(token: string): Promise<Record<number, CachedBook>> {
+  const booksById: Record<number, CachedBook> = {};
+  let bookPage = 1;
+  while (true) {
+    const data = await rw(`/books/?page_size=1000&page=${bookPage}`, token);
+    for (const b of data.results as RWBook[]) {
+      booksById[b.id] = {
+        ...b,
+        tags: (b.tags || []).map((t) => t.name),
+      };
+    }
+    if (!data.next) break;
+    bookPage++;
+    if (bookPage > 10) break;
+  }
+  return booksById;
+}
+
 Deno.serve(async (req) => {
   if (req.method === "OPTIONS") {
     return new Response("ok", { headers: corsHeaders });
@@ -78,41 +100,52 @@ Deno.serve(async (req) => {
   }
 
   let categories: string[] | undefined;
+  let tags: string[] | undefined;
+  let listTags = false;
   try {
     if (req.method === "POST") {
       const body = await req.json().catch(() => ({}));
+      if (body?.listTags === true) listTags = true;
       if (Array.isArray(body?.categories) && body.categories.length > 0) {
         categories = body.categories.filter((c: unknown): c is string => typeof c === "string");
+      }
+      if (Array.isArray(body?.tags) && body.tags.length > 0) {
+        tags = body.tags.filter((t: unknown): t is string => typeof t === "string");
       }
     }
   } catch {
     // ignore
   }
-  const filterSet = categories && categories.length > 0 ? new Set(categories) : null;
+  const categorySet = categories && categories.length > 0 ? new Set(categories) : null;
+  const tagSet = tags && tags.length > 0 ? new Set(tags) : null;
 
   try {
-    // Fetch books once (paginated). 1000 per page covers most users.
-    const booksById: Record<number, RWBook> = {};
-    let bookPage = 1;
-    while (true) {
-      const data = await rw(`/books/?page_size=1000&page=${bookPage}`, token);
-      for (const b of data.results as RWBook[]) {
-        booksById[b.id] = b;
+    const booksById = await fetchAllBooks(token);
+
+    if (listTags) {
+      const tagSetAll = new Set<string>();
+      for (const id in booksById) {
+        for (const t of booksById[id].tags) tagSetAll.add(t);
       }
-      if (!data.next) break;
-      bookPage++;
-      if (bookPage > 10) break;
+      const list = [...tagSetAll].sort((a, b) => a.localeCompare(b));
+      return new Response(JSON.stringify({ tags: list }), {
+        status: 200,
+        headers: { ...corsHeaders, "Content-Type": "application/json" },
+      });
     }
 
-    // Fetch highlights pages until we've collected TARGET matching entries
     const collected: RWHighlight[] = [];
     for (let page = 1; page <= MAX_HIGHLIGHT_PAGES; page++) {
       const data = await rw(`/highlights/?page_size=100&page=${page}`, token);
       const results: RWHighlight[] = data.results || [];
       for (const h of results) {
-        if (filterSet) {
-          const cat = booksById[h.book_id]?.category;
-          if (!cat || !filterSet.has(cat)) continue;
+        const b = booksById[h.book_id];
+        if (categorySet) {
+          if (!b?.category || !categorySet.has(b.category)) continue;
+        }
+        if (tagSet) {
+          const bookTags = b?.tags || [];
+          if (!bookTags.some((t) => tagSet.has(t))) continue;
         }
         collected.push(h);
         if (collected.length >= TARGET) break;
@@ -120,7 +153,6 @@ Deno.serve(async (req) => {
       if (collected.length >= TARGET || !data.next) break;
     }
 
-    // Enrich with Reader API summaries (v2 /books/ doesn't return summaries for articles)
     const neededUrls = new Set<string>();
     for (const h of collected) {
       const b = booksById[h.book_id];
@@ -152,6 +184,7 @@ Deno.serve(async (req) => {
           source_url: b?.source_url ?? null,
           cover_image_url: b?.cover_image_url ?? null,
           summary,
+          tags: b?.tags ?? [],
         },
       };
     });
