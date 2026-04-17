@@ -5,6 +5,7 @@ const corsHeaders = {
 };
 
 const READWISE_BASE = "https://readwise.io/api/v2";
+const READER_BASE = "https://readwise.io/api/v3";
 const TARGET = 200;
 const MAX_HIGHLIGHT_PAGES = 10;
 
@@ -28,8 +29,8 @@ interface RWBook {
   summary: string | null;
 }
 
-async function rw(path: string, token: string): Promise<any> {
-  const res = await fetch(`${READWISE_BASE}${path}`, {
+async function rw(path: string, token: string, base = READWISE_BASE): Promise<any> {
+  const res = await fetch(`${base}${path}`, {
     headers: { Authorization: `Token ${token}` },
   });
   if (!res.ok) {
@@ -37,6 +38,30 @@ async function rw(path: string, token: string): Promise<any> {
     throw new Error(`Readwise ${path} failed [${res.status}]: ${body.slice(0, 200)}`);
   }
   return res.json();
+}
+
+// Fetch summaries from the Reader v3 API and key them by source_url for matching
+async function fetchReaderSummaries(token: string, neededUrls: Set<string>): Promise<Map<string, string>> {
+  const map = new Map<string, string>();
+  if (neededUrls.size === 0) return map;
+  let cursor: string | null = null;
+  let pages = 0;
+  while (pages < 8 && map.size < neededUrls.size) {
+    const qs = new URLSearchParams({ withHtmlContent: "false" });
+    if (cursor) qs.set("pageCursor", cursor);
+    const data: any = await rw(`/list/?${qs.toString()}`, token, READER_BASE);
+    for (const doc of data.results || []) {
+      const url: string | null = doc.source_url || null;
+      const summary: string | null = doc.summary || null;
+      if (url && summary && neededUrls.has(url) && !map.has(url)) {
+        map.set(url, summary);
+      }
+    }
+    cursor = data.nextPageCursor || null;
+    if (!cursor) break;
+    pages++;
+  }
+  return map;
 }
 
 Deno.serve(async (req) => {
