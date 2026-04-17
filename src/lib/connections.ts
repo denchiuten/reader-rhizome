@@ -101,7 +101,7 @@ export function findCrossConnectionsSemantic(
   vectors: Map<number, number[]>,
   options: ConnectionOpts = {},
 ): CrossConnection[] {
-  const { minScore = 0.55, maxEdges = 60, perNode = 2 } = options;
+  const { minScore = 0.38, maxEdges = 120, perNode = 4 } = options;
   const cands: { i: number; j: number; score: number }[] = [];
   for (let i = 0; i < highlights.length; i++) {
     const va = vectors.get(highlights[i].id);

@@ -99,9 +99,9 @@ export function useReadwiseData() {
       const useSemantic = vectorsReady && covered / highlights.length >= 0.6;
       const conns = useSemantic
         ? findCrossConnectionsSemantic(highlights, vectors, {
-            minScore: 0.55,
-            maxEdges: 60,
-            perNode: 2,
+            minScore: 0.38,
+            maxEdges: 120,
+            perNode: 4,
           })
         : findCrossConnectionsLocal(highlights, {
             minScore: 0.08,
