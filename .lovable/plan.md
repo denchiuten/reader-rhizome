@@ -1,39 +1,24 @@
 
-## Goal
-When a cross-source edge is selected (connection view open), dim every node and edge except the two connected highlights and the link between them.
+## Problem
+On mobile portrait, `useIsMobile()` returns true (viewport < 768px) so the graph runs in `simplified` mode with `maxNodes=60`. The current node-trimming picks the 60 highest-degree nodes, which all tend to belong to one dense source — so the user sees a single big cluster from one book. In landscape, viewport ≥ 768px, `isMobile` flips to false, `maxNodes=999`, full graph renders → all clusters visible.
 
-## Approach
-The graph already has dimming logic for hover/selected single nodes via `hoverRef` and `selectedId`. Extend it to support a "selected pair".
+## Fix
+Change the mobile node-selection strategy in `HighlightGraph.tsx` so the trimmed set is **representative across all sources**, not dominated by the densest book. Specifically: round-robin across books, picking each book's highest-degree nodes in turn until we hit `maxNodes`. This guarantees every source contributes at least one node (up to the cap), so all clusters appear on mobile portrait too.
 
-### 1. New prop on `HighlightGraph.tsx`
-Add `selectedPair?: { aId: number; bId: number } | null`.
+Also bump the mobile cap modestly (60 → 90) so small-cluster sources get a couple of nodes each, while keeping perf acceptable.
 
-### 2. Dimming logic
-Compute an effective focus set:
-- If `selectedPair` is set → focus = `Set([aId, bId])`
-- Else if hover or `selectedId` → focus = `Set([focusId])` (existing behavior)
-- Else → no dimming
+## Changes
 
-In `nodeCanvasObject`:
-- A node is "in focus" if its id is in the focus set, OR (single-focus case only) it's a neighbor of the focus node.
-- For pair selection: ONLY the two pair nodes are full opacity; everything else dims to 0.18. Neighbors are NOT highlighted (keeps the visual clean — just the pair).
+**`src/components/HighlightGraph.tsx`** — replace the current trim block:
+```ts
+workingHighlights = [...highlights]
+  .sort((a, b) => (degree.get(b.id) || 0) - (degree.get(a.id) || 0))
+  .slice(0, maxNodes);
+```
+with a per-book round-robin: group highlights by `book.id`, sort each group by degree desc, then interleave one-from-each-book per pass until `maxNodes` is reached.
 
-In `linkColor` / `linkWidth`:
-- For pair selection: a link is "in focus" only if both its endpoints are in the pair set (i.e. it's the connecting edge). Bump that edge's width slightly (e.g. 3px) and use full color; everything else fades to the dim color.
-- Existing single-focus behavior unchanged.
-
-### 3. Wire from `Index.tsx`
-Pass `selectedPair={selection?.kind === "connection" ? { aId: selection.a.id, bId: selection.b.id } : null}`.
-
-Keep `selectedId` as today (null when connection is selected, so no single-node glow).
-
-### 4. Edge cases
-- If the two nodes happen to be from the same source, there's also a same-source edge between them — that one will also light up since both endpoints are in the pair. Acceptable.
-- Hover still overrides while pair is selected? Decision: pair selection wins — ignore hover dimming while `selectedPair` is set, so the view stays stable. Tooltips on hover still work.
-
-## Files to edit
-- `src/components/HighlightGraph.tsx` — add prop, extend dimming in `nodeCanvasObject`, `linkColor`, `linkWidth`.
-- `src/pages/Index.tsx` — pass new `selectedPair` prop.
+**`src/pages/Index.tsx`** — change `maxNodes={isMobile ? 60 : 999}` → `maxNodes={isMobile ? 90 : 999}`.
 
 ## Out of scope
-- No changes to layout, tooltip, or `ConnectionDetail`.
+- No changes to the `useIsMobile` breakpoint or layout.
+- No changes to desktop behavior (still uncapped).
