@@ -3,7 +3,7 @@ import { AlertTriangle, Info, Loader2, RefreshCw } from "lucide-react";
 import { Button } from "@/components/ui/button";
 import { Sheet, SheetContent } from "@/components/ui/sheet";
 import { Alert, AlertDescription, AlertTitle } from "@/components/ui/alert";
-import { Tooltip, TooltipContent, TooltipProvider, TooltipTrigger } from "@/components/ui/tooltip";
+import { Popover, PopoverContent, PopoverTrigger } from "@/components/ui/popover";
 import { HighlightGraph } from "@/components/HighlightGraph";
 import { HighlightDetail } from "@/components/HighlightDetail";
 import { CategoryFilter } from "@/components/CategoryFilter";
@@ -63,22 +63,24 @@ const Index = () => {
             <h1 className="text-base font-semibold tracking-tight text-foreground sm:text-lg">
               Dennis’ Readwise Highlight Graph
             </h1>
-            <TooltipProvider delayDuration={150}>
-              <Tooltip>
-                <TooltipTrigger asChild>
-                  <button
-                    type="button"
-                    aria-label="About this site"
-                    className="text-muted-foreground transition-colors hover:text-foreground"
-                  >
-                    <Info className="h-3.5 w-3.5" />
-                  </button>
-                </TooltipTrigger>
-                <TooltipContent side="bottom" align="start" className="max-w-xs text-xs leading-relaxed">
-                  This is Dennis Chiu’s personal Readwise highlight graph, shared publicly so friends and colleagues can explore the ideas he’s reading. It pulls his 200 most recent highlights and surfaces connections between them.
-                </TooltipContent>
-              </Tooltip>
-            </TooltipProvider>
+            <Popover>
+              <PopoverTrigger asChild>
+                <button
+                  type="button"
+                  aria-label="About this site"
+                  className="text-muted-foreground transition-colors hover:text-foreground"
+                >
+                  <Info className="h-3.5 w-3.5" />
+                </button>
+              </PopoverTrigger>
+              <PopoverContent
+                side="bottom"
+                align="start"
+                className="w-80 text-xs leading-relaxed text-muted-foreground"
+              >
+                This is Dennis Chiu’s personal Readwise highlight graph, shared publicly so friends and colleagues can explore the ideas he’s reading. It pulls his 200 most recent highlights and surfaces connections between them.
+              </PopoverContent>
+            </Popover>
           </div>
           <p className="text-xs text-muted-foreground sm:text-sm">
             An interactive network of related ideas from what I’m reading.
