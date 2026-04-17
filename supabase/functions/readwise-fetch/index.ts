@@ -23,6 +23,7 @@ interface RWBook {
   category: string | null;
   source_url: string | null;
   cover_image_url: string | null;
+  summary: string | null;
 }
 
 async function rw(path: string, token: string): Promise<any> {
@@ -88,6 +89,7 @@ Deno.serve(async (req) => {
           category: b?.category ?? null,
           source_url: b?.source_url ?? null,
           cover_image_url: b?.cover_image_url ?? null,
+          summary: b?.summary ?? null,
         },
       };
     });

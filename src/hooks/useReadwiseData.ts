@@ -3,7 +3,7 @@ import { fetchHighlights } from "@/lib/readwise";
 import { findCrossConnectionsLocal } from "@/lib/connections";
 import type { CrossConnection, Highlight } from "@/types/highlight";
 
-const CACHE_KEY = "highlight-graph:cache:v2";
+const CACHE_KEY = "highlight-graph:cache:v3";
 const CACHE_TTL = 1000 * 60 * 60 * 6; // 6h
 
 interface CachedData {
