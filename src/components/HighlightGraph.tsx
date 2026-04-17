@@ -107,9 +107,9 @@ export function HighlightGraph({
     const fg = fgRef.current;
     if (!fg) return;
     // Slightly stronger repulsion for readability
-    const charge = fg.d3Force("charge") as { strength: (n: number) => void } | undefined;
+    const charge = fg.d3Force("charge") as unknown as { strength: (n: number) => void } | undefined;
     charge?.strength(-80);
-    const link = fg.d3Force("link") as { distance: (fn: (l: GraphLink) => number) => void } | undefined;
+    const link = fg.d3Force("link") as unknown as { distance: (fn: (l: GraphLink) => number) => void } | undefined;
     link?.distance((l: GraphLink) => (l.kind === "cross-source" ? 120 : 30));
   }, [data]);
 
