@@ -152,6 +152,8 @@ Deno.serve(async (req) => {
 
     const collected: RWHighlight[] = [];
     for (let page = 1; page <= MAX_HIGHLIGHT_PAGES; page++) {
+      // Small spacing between pages to avoid tripping the per-minute rate limit
+      if (page > 1) await new Promise((r) => setTimeout(r, 250));
       const data = await rw(`/highlights/?page_size=100&page=${page}`, token);
       const results: RWHighlight[] = data.results || [];
       for (const h of results) {
