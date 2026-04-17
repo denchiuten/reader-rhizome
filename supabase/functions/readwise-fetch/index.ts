@@ -120,8 +120,23 @@ Deno.serve(async (req) => {
       if (collected.length >= TARGET || !data.next) break;
     }
 
+    // Enrich with Reader API summaries (v2 /books/ doesn't return summaries for articles)
+    const neededUrls = new Set<string>();
+    for (const h of collected) {
+      const b = booksById[h.book_id];
+      if (b?.source_url && !b.summary) neededUrls.add(b.source_url);
+    }
+    let summaryByUrl = new Map<string, string>();
+    try {
+      summaryByUrl = await fetchReaderSummaries(token, neededUrls);
+    } catch (e) {
+      console.warn("Reader summary fetch failed (non-fatal):", e instanceof Error ? e.message : e);
+    }
+
     const result = collected.map((h) => {
       const b = booksById[h.book_id];
+      const summary =
+        b?.summary ?? (b?.source_url ? summaryByUrl.get(b.source_url) ?? null : null);
       return {
         id: h.id,
         text: h.text,
@@ -136,7 +151,7 @@ Deno.serve(async (req) => {
           category: b?.category ?? null,
           source_url: b?.source_url ?? null,
           cover_image_url: b?.cover_image_url ?? null,
-          summary: b?.summary ?? null,
+          summary,
         },
       };
     });
