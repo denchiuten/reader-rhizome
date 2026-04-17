@@ -1,33 +1,44 @@
 
-Add a category filter bar that re-fetches highlights filtered by selected categories.
+## Add tag filtering (document-level)
 
-**Approach:** Readwise's `/highlights/` endpoint doesn't natively filter by category — category lives on books. So filtering requires fetching highlights, then keeping pulling pages until we have 200 highlights whose book.category is in the selected set (with a safety cap on pages).
+Filter highlights by the tags on their parent document/book, not per-highlight tags.
 
-**Changes:**
+### Where document tags come from
 
-1. **Edge function** (`supabase/functions/readwise-fetch/index.ts`):
-   - Accept POST body `{ categories?: string[] }`. Empty/undefined → no filter (current behavior).
-   - Fetch highlights page by page, building up a book cache, filtering each page's highlights by `book.category ∈ categories` until we hit 200 or exhaust ~10 pages (safety cap).
-   - To avoid N book lookups, lazily fetch books needed: collect book_ids per page, fetch missing ones via the existing books-list pagination strategy (kept as-is) but only after we've gathered candidate highlights.
-   - Simpler: keep existing book-fetching logic, but loop highlights pages 1..N (cap 10), filter post-hoc.
+Readwise's v2 `/books/` endpoint returns `tags: [{name, id}]` per book. We already fetch all books up front in the edge function — we just need to keep the tags field and filter on it.
 
-2. **`src/lib/readwise.ts`**:
-   - `fetchHighlights(categories?: string[])` passes them to the edge function body.
+### Changes
 
-3. **`src/hooks/useReadwiseData.ts`**:
-   - Track `categories: string[]` in state. Cache key includes a stable hash of selected categories so each filter combo caches independently.
-   - Expose `setCategories(cats: string[])` which triggers a fresh load (force=true, bypassing cache, but still writing to a cache entry keyed by that filter).
-   - On change, immediately load.
+1. **Edge function** (`supabase/functions/readwise-fetch/index.ts`)
+   - Capture `tags` on each book when paginating `/books/` (store as `string[]` on the cached book).
+   - Accept `tags?: string[]` in POST body.
+   - During the highlight collection loop, a highlight passes if its `book.tags` intersects the selected tag set (OR within tags). Combined with category filter via AND.
+   - New mode `{ listTags: true }`: after fetching all books, return `{ tags: string[] }` — the deduped, sorted list of tag names across all books. Cheap because books are already fetched.
+   - Include `book.tags` in the returned highlight payload so the UI can show them.
 
-4. **New component** `src/components/CategoryFilter.tsx`:
-   - Fixed list of toggleable categories: `books`, `articles`, `tweets`, `podcasts`, `supplementals`. Use the same icons from `HighlightDetail`. Lucide icons reused via a small `categoryIcon()` helper extracted to a shared `src/lib/categories.ts` (icon + label map).
-   - Toggle buttons styled as small pill `Toggle` components (use existing `@/components/ui/toggle`). Empty selection = "All".
+2. **`src/types/highlight.ts`**
+   - Add `tags: string[]` to `HighlightBook`.
+
+3. **`src/lib/readwise.ts`**
+   - `fetchHighlights(categories?, tags?)` — pass both.
+   - New `fetchAvailableTags(): Promise<string[]>`.
+
+4. **`src/hooks/useReadwiseData.ts`**
+   - Add `tags: string[]` to state; mirror category pattern.
+   - Bump cache prefix to `v6`; cache key includes sorted categories + tags.
+   - Expose `setTags(tags)`; `refresh` uses current categories + tags.
+
+5. **New `src/components/TagFilter.tsx`**
+   - Popover trigger button labelled "Tags" with a count badge when any are selected.
+   - Inside: search input, scrollable checkbox list of available tags, "Clear" button.
+   - Loads available tags once on mount via `fetchAvailableTags()`.
    - Disabled while loading.
 
-5. **`src/pages/Index.tsx`**:
-   - Render `<CategoryFilter selected={categories} onChange={setCategories} disabled={loading || connectionsLoading} />` in the header, beneath the stats line (or aligned right of stats on desktop).
-   - Wire up the new hook returns.
+6. **`src/pages/Index.tsx`**
+   - Render `<TagFilter />` next to `<CategoryFilter />` in the header.
+   - Wire `tags` / `setTags` from the hook.
 
-6. **Refactor:** Move category icon mapping into `src/lib/categories.ts` so HighlightDetail and CategoryFilter share one source of truth (avoids duplication — addresses the "perfect architecture" guideline).
-
-No schema/database changes; no new dependencies (lucide + existing toggle component cover it).
+### Notes
+- Tag matching: OR within selected tags (book has any), AND with category filter.
+- Tags shown exact-as-stored (Readwise tags are case-sensitive).
+- No schema/db changes; uses existing Popover/Checkbox/Input/Badge components.
