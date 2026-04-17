@@ -16,6 +16,7 @@ interface Props {
   onSelect: (h: Highlight | null) => void;
   onSelectConnection?: (conn: ConnectionSelection) => void;
   selectedId: number | null;
+  selectedPair?: { aId: number; bId: number } | null;
   width: number;
   height: number;
   simplified?: boolean;
@@ -30,6 +31,7 @@ export function HighlightGraph({
   onSelect,
   onSelectConnection,
   selectedId,
+  selectedPair = null,
   width,
   height,
   simplified = false,
@@ -276,18 +278,32 @@ export function HighlightGraph({
       linkWidth={(l) => {
         const link = l as GraphLink;
         const isHovered = hoveredLink === link;
+        if (selectedPair) {
+          const s = typeof link.source === "object" ? link.source.id : link.source;
+          const t = typeof link.target === "object" ? link.target.id : link.target;
+          const isPairEdge =
+            (s === selectedPair.aId && t === selectedPair.bId) ||
+            (s === selectedPair.bId && t === selectedPair.aId);
+          if (isPairEdge) return 3;
+        }
         if (link.kind === "cross-source") return isHovered ? 3 : 1.5;
         return 0.5;
       }}
       linkColor={(l) => {
         const link = l as GraphLink;
+        const s = typeof link.source === "object" ? link.source.id : link.source;
+        const t = typeof link.target === "object" ? link.target.id : link.target;
+        if (selectedPair) {
+          const isPairEdge =
+            (s === selectedPair.aId && t === selectedPair.bId) ||
+            (s === selectedPair.bId && t === selectedPair.aId);
+          return isPairEdge ? link.color : "hsla(248, 24%, 30%, 0.12)";
+        }
         if (hoveredLink === link) return link.color;
         const hover = hoverRef.current;
         const sel = selectedId;
         const focus = hover ?? sel;
         if (focus !== null) {
-          const s = typeof link.source === "object" ? link.source.id : link.source;
-          const t = typeof link.target === "object" ? link.target.id : link.target;
           const involved = s === focus || t === focus;
           return involved ? link.color : "hsla(248, 24%, 30%, 0.15)";
         }
@@ -300,12 +316,17 @@ export function HighlightGraph({
       nodeCanvasObject={(node, ctx, globalScale) => {
         const n = node as unknown as GraphNode;
         const r = n.val;
-        const hover = hoverRef.current;
-        const focus = hover ?? selectedId;
         let alpha = 1;
-        if (focus !== null && focus !== n.id) {
-          const isNeighbor = neighbors.get(focus)?.has(n.id);
-          alpha = isNeighbor ? 0.95 : 0.18;
+        if (selectedPair) {
+          const isPair = n.id === selectedPair.aId || n.id === selectedPair.bId;
+          alpha = isPair ? 1 : 0.18;
+        } else {
+          const hover = hoverRef.current;
+          const focus = hover ?? selectedId;
+          if (focus !== null && focus !== n.id) {
+            const isNeighbor = neighbors.get(focus)?.has(n.id);
+            alpha = isNeighbor ? 0.95 : 0.18;
+          }
         }
         ctx.globalAlpha = alpha;
 

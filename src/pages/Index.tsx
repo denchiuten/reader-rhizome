@@ -160,6 +160,11 @@ const Index = () => {
                 onSelect={selectHighlight}
                 onSelectConnection={(c) => setSelection({ kind: "connection", ...c })}
                 selectedId={selectedHighlight?.id ?? null}
+                selectedPair={
+                  selection?.kind === "connection"
+                    ? { aId: selection.a.id, bId: selection.b.id }
+                    : null
+                }
                 width={width}
                 height={height}
                 simplified={isMobile}
