@@ -89,12 +89,12 @@ export function HighlightDetail({
               </div>
             )}
             <a
-              href={highlight.url || readwiseUrl}
+              href={linkHref}
               target="_blank"
               rel="noreferrer"
               className="mt-3 inline-flex items-center gap-1 text-xs text-primary hover:underline"
             >
-              Open in Readwise <ExternalLink className="h-3 w-3" />
+              {linkLabel} <ExternalLink className="h-3 w-3" />
             </a>
           </section>
 
