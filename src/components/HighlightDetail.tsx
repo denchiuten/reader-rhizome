@@ -165,11 +165,7 @@ export function HighlightDetail({
                 <h3 className="mb-2 text-sm font-semibold text-foreground">
                   Document summary
                 </h3>
-                <div className="rounded-md border border-border bg-secondary/40 p-3">
-                  <p className="whitespace-pre-wrap text-sm leading-relaxed text-foreground/80">
-                    {highlight.book.summary}
-                  </p>
-                </div>
+                <CollapsibleSummary summary={highlight.book.summary} />
               </section>
             </>
           )}
