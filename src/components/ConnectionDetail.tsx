@@ -100,6 +100,8 @@ export function ConnectionDetail({
   hideClose = false,
 }: Props) {
   const pct = score != null ? Math.round(score * 100) : null;
+  const { summary, loading: summaryLoading, error: summaryError, retry } =
+    useConnectionSummary(a, b, sharedTerms);
 
   return (
     <div className="flex h-full flex-col bg-card">
@@ -145,6 +147,46 @@ export function ConnectionDetail({
 
       <ScrollArea className="flex-1 [&>[data-radix-scroll-area-viewport]>div]:!block">
         <div className="space-y-3 p-4">
+          <section
+            aria-label="AI summary"
+            className="rounded-md border border-primary/30 bg-primary/5 p-3"
+          >
+            <div className="mb-1.5 flex items-center justify-between gap-2">
+              <p className="flex items-center gap-1.5 text-[10px] font-medium uppercase tracking-wider text-primary">
+                <Wand2 className="h-3 w-3" />
+                AI summary
+              </p>
+              {summaryError && !summaryLoading && (
+                <button
+                  type="button"
+                  onClick={retry}
+                  className="text-[10px] font-medium text-primary hover:underline"
+                >
+                  Retry
+                </button>
+              )}
+            </div>
+            {summaryLoading ? (
+              <div className="space-y-1.5" aria-busy="true">
+                <Skeleton className="h-3 w-full" />
+                <Skeleton className="h-3 w-[92%]" />
+                <Skeleton className="h-3 w-[78%]" />
+                <p className="mt-2 flex items-center gap-1.5 text-[10px] text-muted-foreground">
+                  <Loader2 className="h-3 w-3 animate-spin" />
+                  Connecting the dots…
+                </p>
+              </div>
+            ) : summaryError ? (
+              <p className="text-xs text-muted-foreground">
+                Couldn't generate a summary. {summaryError}
+              </p>
+            ) : summary ? (
+              <Markdown className="text-sm leading-relaxed text-foreground/90">
+                {summary}
+              </Markdown>
+            ) : null}
+          </section>
+
           <HighlightCard highlight={a} onOpen={() => onSelectHighlight(a)} />
           <div className="flex items-center gap-2 px-1">
             <Separator className="flex-1" />
