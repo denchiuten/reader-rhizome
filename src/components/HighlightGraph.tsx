@@ -12,6 +12,8 @@ interface Props {
   height: number;
   simplified?: boolean;
   maxNodes?: number;
+  focusBookId?: number | null;
+  onFocusHandled?: () => void;
 }
 
 export function HighlightGraph({
@@ -23,6 +25,8 @@ export function HighlightGraph({
   height,
   simplified = false,
   maxNodes = 60,
+  focusBookId = null,
+  onFocusHandled,
 }: Props) {
   const fgRef = useRef<ForceGraphMethods | undefined>(undefined);
   const hoverRef = useRef<number | null>(null);
