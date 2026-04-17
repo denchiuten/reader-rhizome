@@ -36,7 +36,7 @@ interface CachedBook extends Omit<RWBook, "tags"> {
 
 async function rw(path: string, token: string, base = READWISE_BASE): Promise<any> {
   const url = `${base}${path}`;
-  const maxAttempts = 3;
+  const maxAttempts = 4;
   for (let attempt = 1; attempt <= maxAttempts; attempt++) {
     const res = await fetch(url, {
       headers: { Authorization: `Token ${token}` },
@@ -45,8 +45,8 @@ async function rw(path: string, token: string, base = READWISE_BASE): Promise<an
       const body = await res.text();
       const match = body.match(/in (\d+) seconds/);
       const hinted = match ? parseInt(match[1], 10) : 5;
-      // Cap waits so we don't blow the function timeout
-      const waitMs = Math.min(hinted, 8) * 1000;
+      // Cap waits so we don't blow the function timeout (max ~30s observed)
+      const waitMs = Math.min(hinted + 1, 30) * 1000;
       console.warn(`Readwise 429 on ${path}; waiting ${waitMs}ms (attempt ${attempt}/${maxAttempts})`);
       await new Promise((r) => setTimeout(r, waitMs));
       continue;
