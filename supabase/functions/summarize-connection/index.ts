@@ -1,3 +1,5 @@
+import { createClient } from "https://esm.sh/@supabase/supabase-js@2.45.0";
+
 const corsHeaders = {
   "Access-Control-Allow-Origin": "*",
   "Access-Control-Allow-Headers":
@@ -72,19 +74,10 @@ function buildUserPrompt(a: InHighlight, b: InHighlight, sharedTerms: string[]):
 Deno.serve(async (req) => {
   if (req.method === "OPTIONS") return new Response("ok", { headers: corsHeaders });
 
-  const ip =
-    req.headers.get("x-forwarded-for")?.split(",")[0].trim() ||
-    req.headers.get("cf-connecting-ip") ||
-    "unknown";
-  if (isRateLimited(ip)) {
-    return new Response(JSON.stringify({ error: "Too many requests" }), {
-      status: 429,
-      headers: { ...corsHeaders, "Content-Type": "application/json", "Retry-After": "60" },
-    });
-  }
-
   const apiKey = Deno.env.get("OPENAI_API_KEY");
-  if (!apiKey) {
+  const supabaseUrl = Deno.env.get("SUPABASE_URL");
+  const serviceKey = Deno.env.get("SUPABASE_SERVICE_ROLE_KEY");
+  if (!apiKey || !supabaseUrl || !serviceKey) {
     return new Response(JSON.stringify({ error: "Service not configured" }), {
       status: 500,
       headers: { ...corsHeaders, "Content-Type": "application/json" },
@@ -112,6 +105,42 @@ Deno.serve(async (req) => {
   const sharedTerms = Array.isArray(body.sharedTerms)
     ? (body.sharedTerms as unknown[]).filter((t): t is string => typeof t === "string")
     : [];
+
+  // Canonical pair ordering
+  const [lo, hi] = a.id < b.id ? [a.id, b.id] : [b.id, a.id];
+
+  const supabase = createClient(supabaseUrl, serviceKey);
+
+  // L2 cache lookup (before rate limiting — cached hits don't burn quota)
+  try {
+    const { data: cached, error: cacheErr } = await supabase
+      .from("connection_summaries")
+      .select("summary, model")
+      .eq("highlight_id_a", lo)
+      .eq("highlight_id_b", hi)
+      .maybeSingle();
+    if (cacheErr) {
+      console.error("Cache lookup error:", cacheErr.message);
+    } else if (cached?.summary) {
+      return new Response(
+        JSON.stringify({ summary: cached.summary, model: cached.model, cached: true }),
+        { status: 200, headers: { ...corsHeaders, "Content-Type": "application/json" } },
+      );
+    }
+  } catch (e) {
+    console.error("Cache lookup threw:", e instanceof Error ? e.message : String(e));
+  }
+
+  const ip =
+    req.headers.get("x-forwarded-for")?.split(",")[0].trim() ||
+    req.headers.get("cf-connecting-ip") ||
+    "unknown";
+  if (isRateLimited(ip)) {
+    return new Response(JSON.stringify({ error: "Too many requests" }), {
+      status: 429,
+      headers: { ...corsHeaders, "Content-Type": "application/json", "Retry-After": "60" },
+    });
+  }
 
   const systemPrompt =
     "You connect ideas across books, articles, and notes. Given two highlights, write a concise 2–3 sentence explanation of the shared insight or tension between them. Be concrete and specific — reference the actual ideas, not generic platitudes. No preamble, no headings, no bullet points. Plain prose only.";
@@ -162,7 +191,19 @@ Deno.serve(async (req) => {
       });
     }
 
-    return new Response(JSON.stringify({ summary, model: MODEL }), {
+    // Persist to L2 cache (best-effort)
+    try {
+      const { error: insErr } = await supabase
+        .from("connection_summaries")
+        .insert({ highlight_id_a: lo, highlight_id_b: hi, summary, model: MODEL });
+      if (insErr && insErr.code !== "23505") {
+        console.error("Cache insert error:", insErr.message);
+      }
+    } catch (e) {
+      console.error("Cache insert threw:", e instanceof Error ? e.message : String(e));
+    }
+
+    return new Response(JSON.stringify({ summary, model: MODEL, cached: false }), {
       status: 200,
       headers: { ...corsHeaders, "Content-Type": "application/json" },
     });
