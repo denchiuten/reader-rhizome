@@ -118,7 +118,7 @@ Deno.serve(async (req) => {
   const userPrompt = buildUserPrompt(a, b, sharedTerms);
 
   try {
-    const res = await fetch("https://api.openai.com/v1/chat/completions", {
+    const res = await fetch("https://api.openai.com/v1/responses", {
       method: "POST",
       headers: {
         Authorization: `Bearer ${apiKey}`,
@@ -126,10 +126,8 @@ Deno.serve(async (req) => {
       },
       body: JSON.stringify({
         model: MODEL,
-        messages: [
-          { role: "system", content: systemPrompt },
-          { role: "user", content: userPrompt },
-        ],
+        instructions: systemPrompt,
+        input: userPrompt,
       }),
     });
 
@@ -149,7 +147,14 @@ Deno.serve(async (req) => {
     }
 
     const data = await res.json();
-    const summary: string = data?.choices?.[0]?.message?.content?.trim() || "";
+    let summary: string = (data?.output_text ?? "").trim();
+    if (!summary && Array.isArray(data?.output)) {
+      summary = data.output
+        .flatMap((o: { content?: Array<{ text?: string }> }) => o.content ?? [])
+        .map((c: { text?: string }) => c.text ?? "")
+        .join("")
+        .trim();
+    }
     if (!summary) {
       return new Response(JSON.stringify({ error: "Empty summary" }), {
         status: 502,
