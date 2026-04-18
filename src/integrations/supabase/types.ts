@@ -14,6 +14,30 @@ export type Database = {
   }
   public: {
     Tables: {
+      connection_summaries: {
+        Row: {
+          created_at: string
+          highlight_id_a: number
+          highlight_id_b: number
+          model: string
+          summary: string
+        }
+        Insert: {
+          created_at?: string
+          highlight_id_a: number
+          highlight_id_b: number
+          model: string
+          summary: string
+        }
+        Update: {
+          created_at?: string
+          highlight_id_a?: number
+          highlight_id_b?: number
+          model?: string
+          summary?: string
+        }
+        Relationships: []
+      }
       highlight_embeddings: {
         Row: {
           created_at: string
