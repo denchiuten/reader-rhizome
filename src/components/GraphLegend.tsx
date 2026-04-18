@@ -41,7 +41,7 @@ export function GraphLegend({
   }, [highlights]);
 
   return (
-    <div className={`pointer-events-auto absolute top-3 right-3 ${compact ? "w-44" : "w-56"} rounded-md border border-border bg-card/85 text-xs shadow-sm backdrop-blur`}>
+    <div className={`pointer-events-auto absolute top-3 right-2 sm:right-3 ${compact ? "w-44" : "w-56"} max-w-[calc(100vw-1rem)] sm:max-w-[calc(100vw-1.5rem)] rounded-md border border-border bg-card/85 text-xs shadow-sm backdrop-blur`}>
       <button
         type="button"
         onClick={() => setOpen((v) => !v)}
