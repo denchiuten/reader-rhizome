@@ -1,33 +1,20 @@
 
 ## Goal
-Cache AI-generated connection summaries in the database, keyed by the unordered highlight pair, so they're reused across sessions instead of re-calling OpenAI.
+Show more connection lines by lowering similarity thresholds.
 
-## Schema
-New table `connection_summaries`:
-- `highlight_id_a bigint` — always the smaller id
-- `highlight_id_b bigint` — always the larger id
-- `summary text not null`
-- `model text not null`
-- `created_at timestamptz default now()`
-- PRIMARY KEY `(highlight_id_a, highlight_id_b)`
-- CHECK `highlight_id_a < highlight_id_b` (enforces canonical ordering)
+## Changes
+**`src/hooks/useReadwiseData.ts`** — relax both semantic and lexical thresholds, allow more edges per node:
 
-RLS:
-- Enable RLS
-- Public SELECT policy (matches `highlight_embeddings` pattern — app is read-only public)
-- No INSERT/UPDATE/DELETE policies for clients; the edge function writes via service role
+- Semantic: `minScore` 0.38 → **0.30**, `maxEdges` 120 → **220**, `perNode` 4 → **7**
+- Lexical fallback: `minScore` 0.08 → **0.05**, `maxEdges` 60 → **120**, `perNode` 2 → **4**
 
-## Edge function changes (`summarize-connection/index.ts`)
-1. Create Supabase client with `SUPABASE_SERVICE_ROLE_KEY`.
-2. Compute canonical pair: `[lo, hi] = a.id < b.id ? [a.id, b.id] : [b.id, a.id]`.
-3. Before calling OpenAI: `SELECT summary, model FROM connection_summaries WHERE highlight_id_a=lo AND highlight_id_b=hi`. If hit, return immediately with `{ summary, model, cached: true }`.
-4. On miss: call OpenAI as today, then `INSERT ... ON CONFLICT DO NOTHING` and return `{ summary, model, cached: false }`.
-5. Cache lookup happens before rate-limit increment so cached hits don't burn quota (rate limit only applies to actual OpenAI calls).
+Defaults in `src/lib/connections.ts` stay as-is (they're overridden by the hook).
 
-## Frontend
-No changes required — response shape stays `{ summary, model }` (with optional `cached` field ignored). Existing in-memory cache in `useConnectionSummary` continues to work as a fast L1 in front of the DB L2.
+## Why these numbers
+- Semantic cosine 0.30 still filters noise but catches thematic siblings the 0.38 cutoff was hiding.
+- Raising `perNode` is what actually unlocks visible clusters — the previous cap of 4 was throttling dense hubs even when scores qualified.
+- `maxEdges` raised proportionally so the new candidates aren't immediately truncated.
 
-## Out of scope
-- Invalidation on highlight text edits (highlights are immutable in current app)
-- Per-user caching (summaries are content-derived, safe to share)
-- Backfill of existing pairs
+## Risk / out of scope
+- Graph may feel busier; if it becomes too noisy we can re-tighten or expose a slider in a follow-up.
+- No changes to graph rendering, caching, or AI summary logic.
