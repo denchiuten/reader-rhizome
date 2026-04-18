@@ -56,7 +56,7 @@ export function GraphLegend({
       </button>
 
       {open && (
-        <div className="border-t border-border px-2.5 py-2">
+        <div className="max-h-[calc(100vh-8rem)] overflow-y-auto border-t border-border px-2.5 py-2">
           <div className="mb-1 text-[10px] uppercase tracking-wider text-muted-foreground/70">
             Edges
           </div>
@@ -110,11 +110,11 @@ export function GraphLegend({
                 </>
               );
               return (
-                <li key={s.id}>
+                <li key={s.id} className="min-w-0">
                   <button
                     type="button"
                     onClick={() => onFocusSource?.(s.id)}
-                    className="-mx-1 flex w-full items-center gap-2 rounded-sm px-1 py-0.5 text-left hover:bg-accent hover:text-foreground"
+                    className="-mx-1 flex w-full min-w-0 items-center gap-2 rounded-sm px-1 py-0.5 text-left hover:bg-accent hover:text-foreground"
                     title={s.url ? `Focus cluster · ${s.title}` : `Focus cluster · ${s.title}`}
                   >
                     {content}
