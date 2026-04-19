@@ -139,6 +139,19 @@ export function useReadwiseData() {
             perNode: lexicalPerNode,
           });
       if (id !== reqIdRef.current) return;
+      // Diagnostic: edge density
+      const degree = new Map<number, number>();
+      for (const c of conns) {
+        degree.set(c.a.id, (degree.get(c.a.id) || 0) + 1);
+        degree.set(c.b.id, (degree.get(c.b.id) || 0) + 1);
+      }
+      const connected = degree.size;
+      const avgDeg = connected > 0
+        ? ([...degree.values()].reduce((a, b) => a + b, 0) / connected).toFixed(2)
+        : "0";
+      console.log(
+        `[diag] mode=${useSemantic ? "semantic" : "lexical"} edges=${conns.length} connected=${connected}/${highlights.length} avgDeg=${avgDeg} scale=${scale.toFixed(2)}`,
+      );
       setConnections(conns);
       setConnectionsLoading(false);
     }, 30);
