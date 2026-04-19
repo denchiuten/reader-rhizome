@@ -106,7 +106,7 @@ const Index = () => {
                 align="start"
                 className="w-80 text-xs leading-relaxed text-muted-foreground"
               >
-                This is Dennis Chiuten’s personal Readwise highlight graph, shared publicly so friends and colleagues can explore the ideas he’s reading. It pulls his 400 most recent highlights and surfaces connections between them.
+                This is Dennis Chiuten’s personal Readwise highlight graph, shared publicly so friends and colleagues can explore the ideas he’s reading. It pulls his 500 most recent highlights and surfaces connections between them.
               </PopoverContent>
             </Popover>
           </div>
