@@ -1,7 +1,12 @@
-import { useEffect, useMemo, useRef, useState } from "react";
+import { useMemo, useRef, useState } from "react";
 import ForceGraph2D, { type ForceGraphMethods } from "react-force-graph-2d";
-import type { CrossConnection, GraphData, GraphLink, GraphNode, Highlight } from "@/types/highlight";
-import { CROSS_LINK_COLOR, colorForBook } from "@/lib/colors";
+import type { CrossConnection, GraphLink, GraphNode, Highlight } from "@/types/highlight";
+import { CROSS_LINK_COLOR } from "@/lib/colors";
+import { buildGraphData } from "@/components/graph/buildGraphData";
+import { drawNode } from "@/components/graph/drawNode";
+import { useGraphFocus } from "@/components/graph/useGraphFocus";
+import { useGraphWheelPan } from "@/components/graph/useGraphWheelPan";
+import { LinkTooltip } from "@/components/graph/LinkTooltip";
 
 interface ConnectionSelection {
   a: Highlight;
@@ -42,467 +47,114 @@ export function HighlightGraph({
   const fgRef = useRef<ForceGraphMethods | undefined>(undefined);
   const hoverRef = useRef<number | null>(null);
   const [hoveredLink, setHoveredLink] = useState<GraphLink | null>(null);
-  const [mousePos, setMousePos] = useState<{ x: number; y: number } | null>(null);
 
-  const titleById = useMemo(() => {
-    const m = new Map<number, string>();
-    for (const h of highlights) m.set(h.id, h.book.title);
-    return m;
-  }, [highlights]);
+  const { data, neighbors, highlightById } = useMemo(
+    () => buildGraphData(highlights, connections, { simplified, maxNodes }),
+    [highlights, connections, simplified, maxNodes],
+  );
 
-  const highlightById = useMemo(() => {
-    const m = new Map<number, Highlight>();
-    for (const h of highlights) m.set(h.id, h);
-    return m;
-  }, [highlights]);
-
-  const data: GraphData = useMemo(() => {
-    const allBookIds = Array.from(new Set(highlights.map((h) => h.book.id)));
-
-    // Build same-source edges
-    const bySource = new Map<number, Highlight[]>();
-    for (const h of highlights) {
-      if (!bySource.has(h.book.id)) bySource.set(h.book.id, []);
-      bySource.get(h.book.id)!.push(h);
-    }
-
-    const sameLinks: GraphLink[] = [];
-    for (const [bookId, hs] of bySource) {
-      const color = colorForBook(bookId, allBookIds);
-      for (let i = 0; i < hs.length; i++) {
-        for (let j = i + 1; j < hs.length; j++) {
-          sameLinks.push({
-            source: hs[i].id,
-            target: hs[j].id,
-            kind: "same-source",
-            color,
-          });
-        }
-      }
-    }
-
-    const crossLinks: GraphLink[] = connections.map((c) => ({
-      source: c.highlightId,
-      target: c.relatedId,
-      kind: "cross-source",
-      color: CROSS_LINK_COLOR,
-      snippet: c.snippet,
-      score: c.score,
-      sharedTerms: c.sharedTerms,
-      sourceTitle: titleById.get(c.highlightId),
-      targetTitle: titleById.get(c.relatedId),
-    }));
-
-    // Connection counts for sizing & filtering
-    const degree = new Map<number, number>();
-    for (const l of [...sameLinks, ...crossLinks]) {
-      degree.set(l.source as number, (degree.get(l.source as number) || 0) + 1);
-      degree.set(l.target as number, (degree.get(l.target as number) || 0) + 1);
-    }
-
-    let workingHighlights = highlights;
-    if (simplified && highlights.length > maxNodes) {
-      // Round-robin across books so every source is represented.
-      const groups = new Map<number, Highlight[]>();
-      for (const h of highlights) {
-        if (!groups.has(h.book.id)) groups.set(h.book.id, []);
-        groups.get(h.book.id)!.push(h);
-      }
-      for (const arr of groups.values()) {
-        arr.sort((a, b) => (degree.get(b.id) || 0) - (degree.get(a.id) || 0));
-      }
-      const bookOrder = Array.from(groups.keys());
-      const picked: Highlight[] = [];
-      let pass = 0;
-      while (picked.length < maxNodes) {
-        let addedThisPass = false;
-        for (const bId of bookOrder) {
-          const arr = groups.get(bId)!;
-          if (pass < arr.length) {
-            picked.push(arr[pass]);
-            addedThisPass = true;
-            if (picked.length >= maxNodes) break;
-          }
-        }
-        if (!addedThisPass) break;
-        pass++;
-      }
-      workingHighlights = picked;
-    }
-    const nodeIds = new Set(workingHighlights.map((h) => h.id));
-
-    const nodes: GraphNode[] = workingHighlights.map((h) => ({
-      id: h.id,
-      highlight: h,
-      bookId: h.book.id,
-      color: colorForBook(h.book.id, allBookIds),
-      val: 1 + Math.min(8, (degree.get(h.id) || 0) * 0.3),
-    }));
-
-    const links = [...sameLinks, ...crossLinks].filter(
-      (l) => nodeIds.has(l.source as number) && nodeIds.has(l.target as number),
-    );
-
-    // Pick one "label node" per book — the highest-degree node in that cluster
-    const labelNodeIds = new Set<number>();
-    const byBook = new Map<number, GraphNode[]>();
-    for (const n of nodes) {
-      if (!byBook.has(n.bookId)) byBook.set(n.bookId, []);
-      byBook.get(n.bookId)!.push(n);
-    }
-    for (const [, ns] of byBook) {
-      const winner = ns.reduce((best, n) =>
-        (degree.get(n.id) || 0) > (degree.get(best.id) || 0) ? n : best,
-      );
-      labelNodeIds.add(winner.id);
-    }
-
-    return { nodes, links, labelNodeIds };
-  }, [highlights, connections, simplified, maxNodes, titleById]);
-
-  // Build neighbor map for hover dimming
-  const neighbors = useMemo(() => {
-    const m = new Map<number, Set<number>>();
-    for (const l of data.links) {
-      const s = typeof l.source === "object" ? l.source.id : l.source;
-      const t = typeof l.target === "object" ? l.target.id : l.target;
-      if (!m.has(s)) m.set(s, new Set());
-      if (!m.has(t)) m.set(t, new Set());
-      m.get(s)!.add(t);
-      m.get(t)!.add(s);
-    }
-    return m;
-  }, [data.links]);
-
-  useEffect(() => {
-    const fg = fgRef.current;
-    if (!fg) return;
-    // Slightly stronger repulsion for readability
-    const charge = fg.d3Force("charge") as unknown as { strength: (n: number) => void } | undefined;
-    charge?.strength(-80);
-    const link = fg.d3Force("link") as unknown as { distance: (fn: (l: GraphLink) => number) => void } | undefined;
-    link?.distance((l: GraphLink) => (l.kind === "cross-source" ? 120 : 30));
-  }, [data]);
-
-  // Focus on a source's cluster when requested from the legend
-  useEffect(() => {
-    if (focusBookId == null) return;
-    const fg = fgRef.current;
-    if (!fg) return;
-    const clusterNodes = data.nodes.filter(
-      (n) => n.bookId === focusBookId && n.x != null && n.y != null,
-    );
-    if (clusterNodes.length === 0) return;
-
-    // Wait a frame so positions are stable
-    const timer = window.setTimeout(() => {
-      const xs = clusterNodes.map((n) => n.x!);
-      const ys = clusterNodes.map((n) => n.y!);
-      const minX = Math.min(...xs);
-      const maxX = Math.max(...xs);
-      const minY = Math.min(...ys);
-      const maxY = Math.max(...ys);
-      const cx = (minX + maxX) / 2;
-      const cy = (minY + maxY) / 2;
-      const padding = 80;
-      const spanX = Math.max(60, maxX - minX) + padding;
-      const spanY = Math.max(60, maxY - minY) + padding;
-      const zoom = Math.min(width / spanX, height / spanY, 4);
-      fg.centerAt(cx, cy, 700);
-      fg.zoom(Math.max(0.6, zoom), 700);
-      onFocusHandled?.();
-    }, 50);
-    return () => window.clearTimeout(timer);
-  }, [focusBookId, data.nodes, width, height, onFocusHandled]);
-
-  // Auto-fit zoom to frame both nodes when a connection is selected
-  useEffect(() => {
-    if (!selectedPair) return;
-    const fg = fgRef.current;
-    if (!fg) return;
-    const a = data.nodes.find((n) => n.id === selectedPair.aId);
-    const b = data.nodes.find((n) => n.id === selectedPair.bId);
-    if (!a || !b || a.x == null || a.y == null || b.x == null || b.y == null) return;
-
-    const timer = window.setTimeout(() => {
-      const cx = (a.x! + b.x!) / 2;
-      const cy = (a.y! + b.y!) / 2;
-      const padding = 160;
-      const spanX = Math.max(80, Math.abs(a.x! - b.x!)) + padding;
-      const spanY = Math.max(80, Math.abs(a.y! - b.y!)) + padding;
-      const zoom = Math.min(width / spanX, height / spanY, 4);
-      fg.centerAt(cx, cy, 700);
-      fg.zoom(Math.max(0.6, zoom), 700);
-    }, 50);
-    return () => window.clearTimeout(timer);
-  }, [selectedPair, data.nodes, width, height]);
-
-  const wrapperRef = useRef<HTMLDivElement>(null);
-
-  // Two-finger trackpad scroll pans; pinch (ctrlKey wheel) keeps zoom.
-  useEffect(() => {
-    const wrapper = wrapperRef.current;
-    if (!wrapper) return;
-
-    const handleWheel = (e: WheelEvent) => {
-      const fg = fgRef.current;
-      if (!fg) return;
-      // ctrlKey wheel = pinch-to-zoom on trackpads → let the library handle it
-      if (e.ctrlKey) return;
-      e.preventDefault();
-      e.stopPropagation();
-      e.stopImmediatePropagation();
-      const currentZoom = fg.zoom();
-      const dx = e.deltaX / currentZoom;
-      const dy = e.deltaY / currentZoom;
-      const center = fg.centerAt();
-      fg.centerAt((center.x ?? 0) + dx, (center.y ?? 0) + dy, 0);
-    };
-
-    // Capture phase on the wrapper intercepts before the canvas's own listener fires
-    wrapper.addEventListener("wheel", handleWheel, { passive: false, capture: true });
-
-    const handleMove = (e: MouseEvent) => {
-      const rect = wrapper.getBoundingClientRect();
-      setMousePos({ x: e.clientX - rect.left, y: e.clientY - rect.top });
-    };
-    const handleLeave = () => setMousePos(null);
-    wrapper.addEventListener("mousemove", handleMove);
-    wrapper.addEventListener("mouseleave", handleLeave);
-
-    return () => {
-      wrapper.removeEventListener("wheel", handleWheel, true);
-      wrapper.removeEventListener("mousemove", handleMove);
-      wrapper.removeEventListener("mouseleave", handleLeave);
-    };
-  }, []);
+  useGraphFocus(fgRef, data, { focusBookId, selectedPair, width, height, onFocusHandled });
+  const { wrapperRef, mousePos } = useGraphWheelPan(fgRef);
 
   return (
     <div ref={wrapperRef} style={{ width, height, position: "relative" }}>
-    <ForceGraph2D
-      ref={fgRef as never}
-      graphData={data}
-      width={width}
-      height={height}
-      backgroundColor="hsl(0, 0%, 0%)"
-      nodeRelSize={4}
-      cooldownTicks={120}
-      enableNodeDrag={!simplified}
-      onNodeClick={(node) => {
-        const n = node as unknown as GraphNode;
-        onSelect(n.highlight);
-        if (fgRef.current) {
-          fgRef.current.centerAt(n.x ?? 0, n.y ?? 0, 600);
-          fgRef.current.zoom(2.5, 600);
-        }
-      }}
-      onNodeHover={(node) => {
-        hoverRef.current = node ? (node as unknown as GraphNode).id : null;
-      }}
-      onBackgroundClick={() => onSelect(null)}
-      onLinkClick={(link) => {
-        const l = link as GraphLink;
-        if (l.kind !== "cross-source" || !onSelectConnection) return;
-        const sId = typeof l.source === "object" ? l.source.id : l.source;
-        const tId = typeof l.target === "object" ? l.target.id : l.target;
-        const a = highlightById.get(sId as number);
-        const b = highlightById.get(tId as number);
-        if (!a || !b) return;
-        onSelectConnection({ a, b, score: l.score, sharedTerms: l.sharedTerms });
-        if (fgRef.current && typeof l.source === "object" && typeof l.target === "object") {
-          const cx = ((l.source.x ?? 0) + (l.target.x ?? 0)) / 2;
-          const cy = ((l.source.y ?? 0) + (l.target.y ?? 0)) / 2;
-          fgRef.current.centerAt(cx, cy, 600);
-          fgRef.current.zoom(2, 600);
-        }
-      }}
-      onLinkHover={(link) => {
-        const l = link as GraphLink | null;
-        setHoveredLink(l && l.kind === "cross-source" ? l : null);
-      }}
-      linkWidth={(l) => {
-        const link = l as GraphLink;
-        const isHovered = hoveredLink === link;
-        if (selectedPair) {
+      <ForceGraph2D
+        ref={fgRef as never}
+        graphData={data}
+        width={width}
+        height={height}
+        backgroundColor="hsl(0, 0%, 0%)"
+        nodeRelSize={4}
+        cooldownTicks={120}
+        enableNodeDrag={!simplified}
+        onNodeClick={(node) => {
+          const n = node as unknown as GraphNode;
+          onSelect(n.highlight);
+          if (fgRef.current) {
+            fgRef.current.centerAt(n.x ?? 0, n.y ?? 0, 600);
+            fgRef.current.zoom(2.5, 600);
+          }
+        }}
+        onNodeHover={(node) => {
+          hoverRef.current = node ? (node as unknown as GraphNode).id : null;
+        }}
+        onBackgroundClick={() => onSelect(null)}
+        onLinkClick={(link) => {
+          const l = link as GraphLink;
+          if (l.kind !== "cross-source" || !onSelectConnection) return;
+          const sId = typeof l.source === "object" ? l.source.id : l.source;
+          const tId = typeof l.target === "object" ? l.target.id : l.target;
+          const a = highlightById.get(sId as number);
+          const b = highlightById.get(tId as number);
+          if (!a || !b) return;
+          onSelectConnection({ a, b, score: l.score, sharedTerms: l.sharedTerms });
+          if (fgRef.current && typeof l.source === "object" && typeof l.target === "object") {
+            const cx = ((l.source.x ?? 0) + (l.target.x ?? 0)) / 2;
+            const cy = ((l.source.y ?? 0) + (l.target.y ?? 0)) / 2;
+            fgRef.current.centerAt(cx, cy, 600);
+            fgRef.current.zoom(2, 600);
+          }
+        }}
+        onLinkHover={(link) => {
+          const l = link as GraphLink | null;
+          setHoveredLink(l && l.kind === "cross-source" ? l : null);
+        }}
+        linkWidth={(l) => {
+          const link = l as GraphLink;
+          const isHovered = hoveredLink === link;
+          if (selectedPair) {
+            const s = typeof link.source === "object" ? link.source.id : link.source;
+            const t = typeof link.target === "object" ? link.target.id : link.target;
+            const isPairEdge =
+              (s === selectedPair.aId && t === selectedPair.bId) ||
+              (s === selectedPair.bId && t === selectedPair.aId);
+            if (isPairEdge) return 3;
+          }
+          if (link.kind === "cross-source") return isHovered ? 3 : 1.5;
+          return 0.5;
+        }}
+        linkColor={(l) => {
+          const link = l as GraphLink;
           const s = typeof link.source === "object" ? link.source.id : link.source;
           const t = typeof link.target === "object" ? link.target.id : link.target;
-          const isPairEdge =
-            (s === selectedPair.aId && t === selectedPair.bId) ||
-            (s === selectedPair.bId && t === selectedPair.aId);
-          if (isPairEdge) return 3;
-        }
-        if (link.kind === "cross-source") return isHovered ? 3 : 1.5;
-        return 0.5;
-      }}
-      linkColor={(l) => {
-        const link = l as GraphLink;
-        const s = typeof link.source === "object" ? link.source.id : link.source;
-        const t = typeof link.target === "object" ? link.target.id : link.target;
-        if (selectedPair) {
-          const isPairEdge =
-            (s === selectedPair.aId && t === selectedPair.bId) ||
-            (s === selectedPair.bId && t === selectedPair.aId);
-          return isPairEdge ? link.color : "hsla(248, 24%, 30%, 0.12)";
-        }
-        if (hoveredLink === link) return link.color;
-        const hover = hoverRef.current;
-        const sel = selectedId;
-        const focus = hover ?? sel;
-        if (focus !== null) {
-          const involved = s === focus || t === focus;
-          return involved ? link.color : "hsla(248, 24%, 30%, 0.15)";
-        }
-        return link.kind === "cross-source" ? "hsla(267, 57%, 78%, 0.55)" : link.color + "55";
-      }}
-      linkLineDash={(l) => ((l as GraphLink).kind === "cross-source" ? [4, 3] : null)}
-      linkDirectionalParticles={(l) => ((l as GraphLink).kind === "cross-source" ? 2 : 0)}
-      linkDirectionalParticleWidth={2}
-      linkDirectionalParticleColor={() => CROSS_LINK_COLOR}
-      nodeCanvasObject={(node, ctx, globalScale) => {
-        const n = node as unknown as GraphNode;
-        const r = n.val;
-        let alpha = 1;
-        if (selectedPair) {
-          const isPair = n.id === selectedPair.aId || n.id === selectedPair.bId;
-          alpha = isPair ? 1 : 0.18;
-        } else {
-          const hover = hoverRef.current;
-          const focus = hover ?? selectedId;
-          if (focus !== null && focus !== n.id) {
-            const isNeighbor = neighbors.get(focus)?.has(n.id);
-            alpha = isNeighbor ? 0.95 : 0.18;
+          if (selectedPair) {
+            const isPairEdge =
+              (s === selectedPair.aId && t === selectedPair.bId) ||
+              (s === selectedPair.bId && t === selectedPair.aId);
+            return isPairEdge ? link.color : "hsla(248, 24%, 30%, 0.12)";
           }
-        }
-        ctx.globalAlpha = alpha;
-
-        // Glow for selected
-        if (n.id === selectedId) {
-          ctx.beginPath();
-          ctx.arc(n.x!, n.y!, r + 4, 0, 2 * Math.PI);
-          ctx.fillStyle = "hsla(343, 76%, 68%, 0.35)";
-          ctx.fill();
-        }
-
-        ctx.beginPath();
-        ctx.arc(n.x!, n.y!, r, 0, 2 * Math.PI);
-        ctx.fillStyle = n.color;
-        ctx.fill();
-        ctx.strokeStyle = "hsla(245, 50%, 91%, 0.4)";
-        ctx.lineWidth = 0.5;
-        ctx.stroke();
-
-        // One label per cluster: only the chosen "label node" for each book gets the title.
-        // Always show on hover/selection regardless.
-        if (data.labelNodeIds.has(n.id)) {
-          const fontSize = Math.max(11, 13 / globalScale);
-          ctx.font = `600 ${fontSize}px Inter, system-ui, sans-serif`;
-
-          // Word-wrap the title to a max width, up to 3 lines
-          const maxLineWidth = 140; // px in graph space
-          const maxLines = 3;
-          const words = n.highlight.book.title.split(/\s+/);
-          const lines: string[] = [];
-          let current = "";
-          for (const word of words) {
-            const test = current ? `${current} ${word}` : word;
-            if (ctx.measureText(test).width <= maxLineWidth || !current) {
-              current = test;
-            } else {
-              lines.push(current);
-              current = word;
-              if (lines.length === maxLines - 1) break;
-            }
+          if (hoveredLink === link) return link.color;
+          const focus = hoverRef.current ?? selectedId;
+          if (focus !== null) {
+            const involved = s === focus || t === focus;
+            return involved ? link.color : "hsla(248, 24%, 30%, 0.15)";
           }
-          if (current && lines.length < maxLines) lines.push(current);
-          // If we broke early and there's leftover, ellipsize the last line
-          const totalRendered = lines.join(" ");
-          if (totalRendered.length < n.highlight.book.title.length) {
-            const last = lines[lines.length - 1];
-            let truncated = last;
-            while (ctx.measureText(truncated + "…").width > maxLineWidth && truncated.length > 1) {
-              truncated = truncated.slice(0, -1);
-            }
-            lines[lines.length - 1] = truncated + "…";
-          }
-
-          const lineHeight = fontSize + 2;
-          const padX = 4;
-          const padY = 2;
-          const boxWidth = Math.max(...lines.map((l) => ctx.measureText(l).width)) + padX * 2;
-          const boxHeight = lineHeight * lines.length + padY * 2;
-          const boxY = n.y! + r + 4;
-
-          ctx.fillStyle = "hsla(0, 0%, 0%, 0.78)";
-          ctx.fillRect(n.x! - boxWidth / 2, boxY, boxWidth, boxHeight);
-          ctx.fillStyle = "hsla(245, 50%, 91%, 0.95)";
-          ctx.textAlign = "center";
-          ctx.textBaseline = "top";
-          lines.forEach((line, i) => {
-            ctx.fillText(line, n.x!, boxY + padY + i * lineHeight);
+          return link.kind === "cross-source" ? "hsla(267, 57%, 78%, 0.55)" : link.color + "55";
+        }}
+        linkLineDash={(l) => ((l as GraphLink).kind === "cross-source" ? [4, 3] : null)}
+        linkDirectionalParticles={(l) => ((l as GraphLink).kind === "cross-source" ? 2 : 0)}
+        linkDirectionalParticleWidth={2}
+        linkDirectionalParticleColor={() => CROSS_LINK_COLOR}
+        nodeCanvasObject={(node, ctx, globalScale) => {
+          drawNode(node as unknown as GraphNode, ctx, globalScale, {
+            selectedId,
+            selectedPair,
+            hoveredId: hoverRef.current,
+            neighbors,
+            labelNodeIds: data.labelNodeIds,
           });
-        }
-        ctx.globalAlpha = 1;
-      }}
-      nodePointerAreaPaint={(node, color, ctx) => {
-        const n = node as unknown as GraphNode;
-        ctx.fillStyle = color;
-        ctx.beginPath();
-        // Generous click target so small nodes are easy to hit
-        ctx.arc(n.x!, n.y!, Math.max(8, n.val + 4), 0, 2 * Math.PI);
-        ctx.fill();
-      }}
-    />
-    {!simplified && hoveredLink && mousePos && (() => {
-      const tooltipWidth = 280;
-      const tooltipMaxHeight = 200;
-      const offset = 14;
-      let left = mousePos.x + offset;
-      let top = mousePos.y + offset;
-      if (left + tooltipWidth > width) left = mousePos.x - tooltipWidth - offset;
-      if (top + tooltipMaxHeight > height) top = mousePos.y - tooltipMaxHeight - offset;
-      left = Math.max(8, left);
-      top = Math.max(8, top);
-      const pct = hoveredLink.score != null ? Math.round(hoveredLink.score * 100) : null;
-      return (
-        <div
-          className="pointer-events-none absolute z-50 rounded-md border bg-popover text-popover-foreground shadow-md p-3 text-xs animate-in fade-in-0 zoom-in-95"
-          style={{ left, top, width: tooltipWidth }}
-        >
-          <div className="flex items-center justify-between mb-2">
-            <span className="font-semibold uppercase tracking-wide text-[10px] text-muted-foreground">
-              Connected idea
-            </span>
-            {pct != null && (
-              <span className="text-[10px] text-muted-foreground tabular-nums">
-                {pct}% similar
-              </span>
-            )}
-          </div>
-          {hoveredLink.sharedTerms && hoveredLink.sharedTerms.length > 0 && (
-            <div className="flex flex-wrap gap-1 mb-2">
-              {hoveredLink.sharedTerms.map((term) => (
-                <span
-                  key={term}
-                  className="inline-flex items-center rounded-full border border-border/60 bg-muted/40 px-1.5 py-0.5 text-[10px] text-foreground/80"
-                >
-                  {term}
-                </span>
-              ))}
-            </div>
-          )}
-          {hoveredLink.snippet && (
-            <p className="italic text-foreground/90 leading-snug line-clamp-4 mb-2">
-              "{hoveredLink.snippet}"
-            </p>
-          )}
-          {(hoveredLink.sourceTitle || hoveredLink.targetTitle) && (
-            <p className="text-[10px] text-muted-foreground truncate">
-              {hoveredLink.sourceTitle ?? "?"} ↔ {hoveredLink.targetTitle ?? "?"}
-            </p>
-          )}
-        </div>
-      );
-    })()}
+        }}
+        nodePointerAreaPaint={(node, color, ctx) => {
+          const n = node as unknown as GraphNode;
+          ctx.fillStyle = color;
+          ctx.beginPath();
+          ctx.arc(n.x!, n.y!, Math.max(8, n.val + 4), 0, 2 * Math.PI);
+          ctx.fill();
+        }}
+      />
+      {!simplified && hoveredLink && mousePos && (
+        <LinkTooltip link={hoveredLink} mousePos={mousePos} width={width} height={height} />
+      )}
     </div>
   );
 }
