@@ -71,7 +71,7 @@ export function useReadwiseData() {
 
   // Filter pool: categories OR, tags OR (highlight matches any selected)
   const highlights = useMemo(() => {
-    return allHighlights
+    const result = allHighlights
       .filter(
         (h) =>
           categories.length === 0 ||
@@ -83,6 +83,28 @@ export function useReadwiseData() {
           (h.book.tags || []).some((t) => tags.includes(t)),
       )
       .slice(0, DISPLAY_CAP);
+
+    // Diagnostic: highlights-per-source distribution
+    if (result.length > 0) {
+      const perSource = new Map<string, number>();
+      for (const h of result) {
+        const key = h.book.title || `book-${h.book.id}`;
+        perSource.set(key, (perSource.get(key) || 0) + 1);
+      }
+      const sorted = [...perSource.entries()].sort((a, b) => b[1] - a[1]);
+      const total = result.length;
+      const sourceCount = sorted.length;
+      const avg = (total / sourceCount).toFixed(2);
+      const singletons = sorted.filter(([, c]) => c === 1).length;
+      console.log(
+        `[diag] DISPLAY_CAP=${DISPLAY_CAP} highlights=${total} sources=${sourceCount} avg/source=${avg} singletons=${singletons}`,
+      );
+      console.table(
+        sorted.slice(0, 30).map(([title, count]) => ({ title, count })),
+      );
+    }
+
+    return result;
   }, [allHighlights, categories, tags]);
 
   // Recompute connections whenever the filtered set or vectors change.
