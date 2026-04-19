@@ -35,8 +35,6 @@ const Index = () => {
     setCategories,
     tags,
     setTags,
-    semanticThreshold,
-    setSemanticThreshold,
   } = useReadwiseData();
   const isMobile = useIsMobile();
   const containerRef = useRef<HTMLDivElement>(null);
