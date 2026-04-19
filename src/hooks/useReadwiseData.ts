@@ -120,16 +120,23 @@ export function useReadwiseData() {
       // Use semantic if we have vectors for most of the filtered highlights
       const covered = highlights.filter((h) => vectors.has(h.id)).length;
       const useSemantic = vectorsReady && covered / highlights.length >= 0.6;
+      // Scale connection caps with pool size so density stays roughly constant.
+      // Baseline: 300 highlights → 220 semantic edges, 7 per node.
+      const scale = highlights.length / 300;
+      const semanticMaxEdges = Math.round(220 * scale);
+      const semanticPerNode = Math.max(5, Math.round(7 * scale));
+      const lexicalMaxEdges = Math.round(120 * scale);
+      const lexicalPerNode = Math.max(3, Math.round(4 * scale));
       const conns = useSemantic
         ? findCrossConnectionsSemantic(highlights, vectors, {
             minScore: semanticThreshold,
-            maxEdges: 220,
-            perNode: 7,
+            maxEdges: semanticMaxEdges,
+            perNode: semanticPerNode,
           })
         : findCrossConnectionsLocal(highlights, {
             minScore: 0.05,
-            maxEdges: 120,
-            perNode: 4,
+            maxEdges: lexicalMaxEdges,
+            perNode: lexicalPerNode,
           });
       if (id !== reqIdRef.current) return;
       setConnections(conns);
