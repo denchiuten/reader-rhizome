@@ -4,7 +4,7 @@ import { Button } from "@/components/ui/button";
 import { Sheet, SheetContent } from "@/components/ui/sheet";
 import { Alert, AlertDescription, AlertTitle } from "@/components/ui/alert";
 import { Popover, PopoverContent, PopoverTrigger } from "@/components/ui/popover";
-import { Slider } from "@/components/ui/slider";
+
 import { HighlightGraph } from "@/components/HighlightGraph";
 import { HighlightDetail } from "@/components/HighlightDetail";
 import { ConnectionDetail } from "@/components/ConnectionDetail";
