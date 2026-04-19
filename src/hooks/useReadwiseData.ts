@@ -59,6 +59,7 @@ export function useReadwiseData() {
   const [connections, setConnections] = useState<CrossConnection[]>([]);
   const [vectors, setVectors] = useState<VectorMap>(() => new Map());
   const [vectorsReady, setVectorsReady] = useState<boolean>(false);
+  const [semanticThreshold, setSemanticThreshold] = useState<number>(0.30);
 
   // Hydrate vector cache from localStorage on mount (avoids HMR hook-order issues)
   useEffect(() => {
@@ -99,7 +100,7 @@ export function useReadwiseData() {
       const useSemantic = vectorsReady && covered / highlights.length >= 0.6;
       const conns = useSemantic
         ? findCrossConnectionsSemantic(highlights, vectors, {
-            minScore: 0.40,
+            minScore: semanticThreshold,
             maxEdges: 220,
             perNode: 7,
           })
@@ -113,7 +114,7 @@ export function useReadwiseData() {
       setConnectionsLoading(false);
     }, 30);
     return () => clearTimeout(handle);
-  }, [highlights, vectors, vectorsReady]);
+  }, [highlights, vectors, vectorsReady, semanticThreshold]);
 
   // Kick off embedding fetch whenever the full pool changes.
   useEffect(() => {
@@ -210,6 +211,8 @@ export function useReadwiseData() {
     tags,
     setCategories,
     setTags,
+    semanticThreshold,
+    setSemanticThreshold,
     refresh,
   };
 }
