@@ -59,7 +59,7 @@ export function useReadwiseData() {
   const [connections, setConnections] = useState<CrossConnection[]>([]);
   const [vectors, setVectors] = useState<VectorMap>(() => new Map());
   const [vectorsReady, setVectorsReady] = useState<boolean>(false);
-  const [semanticThreshold, setSemanticThreshold] = useState<number>(0.30);
+  const semanticThreshold = 0.4;
 
   // Hydrate vector cache from localStorage on mount (avoids HMR hook-order issues)
   useEffect(() => {
@@ -253,8 +253,6 @@ export function useReadwiseData() {
     tags,
     setCategories,
     setTags,
-    semanticThreshold,
-    setSemanticThreshold,
     refresh,
   };
 }

@@ -4,7 +4,7 @@ import { Button } from "@/components/ui/button";
 import { Sheet, SheetContent } from "@/components/ui/sheet";
 import { Alert, AlertDescription, AlertTitle } from "@/components/ui/alert";
 import { Popover, PopoverContent, PopoverTrigger } from "@/components/ui/popover";
-import { Slider } from "@/components/ui/slider";
+
 import { HighlightGraph } from "@/components/HighlightGraph";
 import { HighlightDetail } from "@/components/HighlightDetail";
 import { ConnectionDetail } from "@/components/ConnectionDetail";
@@ -35,8 +35,6 @@ const Index = () => {
     setCategories,
     tags,
     setTags,
-    semanticThreshold,
-    setSemanticThreshold,
   } = useReadwiseData();
   const isMobile = useIsMobile();
   const containerRef = useRef<HTMLDivElement>(null);
@@ -127,23 +125,7 @@ const Index = () => {
               onChange={setTags}
               disabled={loading}
             />
-            <div className="flex items-center gap-2 rounded-md border border-border bg-background/60 px-2.5 py-1">
-              <span className="text-[11px] font-medium text-muted-foreground">
-                Threshold
-              </span>
-              <Slider
-                value={[semanticThreshold]}
-                min={0.2}
-                max={0.6}
-                step={0.01}
-                onValueChange={([v]) => setSemanticThreshold(v)}
-                disabled={loading}
-                className="w-28"
-              />
-              <span className="w-8 text-right text-[11px] tabular-nums text-foreground">
-                {semanticThreshold.toFixed(2)}
-              </span>
-            </div>
+          
           </div>
         </div>
         <Button
