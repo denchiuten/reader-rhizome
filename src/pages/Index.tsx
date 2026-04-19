@@ -125,23 +125,7 @@ const Index = () => {
               onChange={setTags}
               disabled={loading}
             />
-            <div className="flex items-center gap-2 rounded-md border border-border bg-background/60 px-2.5 py-1">
-              <span className="text-[11px] font-medium text-muted-foreground">
-                Threshold
-              </span>
-              <Slider
-                value={[semanticThreshold]}
-                min={0.2}
-                max={0.6}
-                step={0.01}
-                onValueChange={([v]) => setSemanticThreshold(v)}
-                disabled={loading}
-                className="w-28"
-              />
-              <span className="w-8 text-right text-[11px] tabular-nums text-foreground">
-                {semanticThreshold.toFixed(2)}
-              </span>
-            </div>
+          
           </div>
         </div>
         <Button
