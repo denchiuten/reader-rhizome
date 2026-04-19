@@ -12,7 +12,7 @@ import type { CrossConnection, Highlight } from "@/types/highlight";
 const CACHE_KEY = "highlight-graph:cache:v8";
 const VECTOR_CACHE_KEY = "highlight-graph:vectors:v1";
 const CACHE_TTL = 1000 * 60 * 60 * 6; // 6h
-const DISPLAY_CAP = 500;
+const DISPLAY_CAP = 300;
 
 interface CachedPool {
   highlights: Highlight[];
