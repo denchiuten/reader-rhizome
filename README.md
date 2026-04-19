@@ -4,6 +4,8 @@ An interactive force-directed graph that surfaces hidden connections across your
 
 🌐 **Live:** [highlights.chiuten.co](https://highlights.chiuten.co) · [reader-rhizome.lovable.app](https://reader-rhizome.lovable.app)
 
+![Reader Rhizome — 400 highlights across 42 sources, with 293 cross-source connections](docs/screenshot.png)
+
 ## What it does
 
 - **Pulls highlights from Readwise** via an edge function and caches them locally.
