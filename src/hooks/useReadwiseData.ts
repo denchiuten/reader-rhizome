@@ -142,8 +142,8 @@ export function useReadwiseData() {
       // Diagnostic: edge density
       const degree = new Map<number, number>();
       for (const c of conns) {
-        degree.set(c.a.id, (degree.get(c.a.id) || 0) + 1);
-        degree.set(c.b.id, (degree.get(c.b.id) || 0) + 1);
+        degree.set(c.highlightId, (degree.get(c.highlightId) || 0) + 1);
+        degree.set(c.relatedId, (degree.get(c.relatedId) || 0) + 1);
       }
       const connected = degree.size;
       const avgDeg = connected > 0
