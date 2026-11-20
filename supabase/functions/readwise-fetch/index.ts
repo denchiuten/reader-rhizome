@@ -1,3 +1,4 @@
+import { createClient } from "https://esm.sh/@supabase/supabase-js@2.45.0";
 const corsHeaders = {
   "Access-Control-Allow-Origin": "*",
   "Access-Control-Allow-Headers":
@@ -118,59 +119,14 @@ function isRateLimited(key: string): boolean {
   return false;
 }
 
-Deno.serve(async (req) => {
-  if (req.method === "OPTIONS") {
-    return new Response("ok", { headers: corsHeaders });
-  }
 
-  const ip =
-    req.headers.get("x-forwarded-for")?.split(",")[0].trim() ||
-    req.headers.get("cf-connecting-ip") ||
-    "unknown";
-  if (isRateLimited(ip)) {
-    return new Response(JSON.stringify({ error: "Too many requests" }), {
-      status: 429,
-      headers: { ...corsHeaders, "Content-Type": "application/json", "Retry-After": "60" },
-    });
-  }
+interface Snapshot { highlights: unknown[]; tags: string[] }
 
-  const token = Deno.env.get("READWISE_ACCESS_TOKEN");
-  if (!token) {
-    return new Response(
-      JSON.stringify({ error: "Service not configured" }),
-      { status: 500, headers: { ...corsHeaders, "Content-Type": "application/json" } },
-    );
-  }
-
-  let listTags = false;
-  try {
-    if (req.method === "POST") {
-      const body = await req.json().catch(() => ({}));
-      if (body?.listTags === true) listTags = true;
-    }
-  } catch {
-    // ignore
-  }
-
-  try {
+async function buildSnapshot(token: string): Promise<Snapshot> {
     const booksById = await fetchAllBooks(token);
-
-    if (listTags) {
-      const tagSetAll = new Set<string>();
-      for (const id in booksById) {
-        for (const t of booksById[id].tags) tagSetAll.add(t);
-      }
-      const list = [...tagSetAll].sort((a, b) => a.localeCompare(b));
-      return new Response(JSON.stringify({ tags: list }), {
-        status: 200,
-        headers: {
-          ...corsHeaders,
-          "Content-Type": "application/json",
-          "Cache-Control": "public, max-age=3600",
-        },
-      });
-    }
-
+    const tagSetAll = new Set<string>();
+    for (const id in booksById) for (const t of booksById[id].tags) tagSetAll.add(t);
+    const tags = [...tagSetAll].sort((a, b) => a.localeCompare(b));
     const collected: RWHighlight[] = [];
     for (let page = 1; page <= MAX_HIGHLIGHT_PAGES; page++) {
       // Small spacing between pages to avoid tripping the per-minute rate limit
@@ -220,13 +176,79 @@ Deno.serve(async (req) => {
       };
     });
 
-    return new Response(JSON.stringify({ highlights: result }), {
+    return { highlights: result, tags };
+}
+
+const SNAPSHOT_TTL_MS = 24 * 60 * 60 * 1000;
+let syncing: Promise<Snapshot> | null = null;
+
+function syncSnapshot(token: string, db: ReturnType<typeof createClient>): Promise<Snapshot> {
+  if (!syncing) {
+    syncing = (async () => {
+      const snap = await buildSnapshot(token);
+      const { error } = await db.from("readwise_snapshots")
+        .upsert({ kind: "pool", payload: snap, synced_at: new Date().toISOString() });
+      if (error) console.error("snapshot save failed:", error.message);
+      return snap;
+    })().finally(() => { syncing = null; });
+  }
+  return syncing;
+}
+
+Deno.serve(async (req) => {
+  if (req.method === "OPTIONS") {
+    return new Response("ok", { headers: corsHeaders });
+  }
+
+  const ip =
+    req.headers.get("x-forwarded-for")?.split(",")[0].trim() ||
+    req.headers.get("cf-connecting-ip") ||
+    "unknown";
+  if (isRateLimited(ip)) {
+    return new Response(JSON.stringify({ error: "Too many requests" }), {
+      status: 429,
+      headers: { ...corsHeaders, "Content-Type": "application/json", "Retry-After": "60" },
+    });
+  }
+
+  const token = Deno.env.get("READWISE_ACCESS_TOKEN");
+  if (!token) {
+    return new Response(
+      JSON.stringify({ error: "Service not configured" }),
+      { status: 500, headers: { ...corsHeaders, "Content-Type": "application/json" } },
+    );
+  }
+
+  let listTags = false;
+  try {
+    if (req.method === "POST") {
+      const body = await req.json().catch(() => ({}));
+      if (body?.listTags === true) listTags = true;
+    }
+  } catch {
+    // ignore
+  }
+
+  try {
+    const db = createClient(Deno.env.get("SUPABASE_URL")!, Deno.env.get("SUPABASE_SERVICE_ROLE_KEY")!);
+    const { data: row } = await db.from("readwise_snapshots")
+      .select("payload, synced_at").eq("kind", "pool").maybeSingle();
+    let snap: Snapshot;
+    if (row?.payload) {
+      snap = row.payload as Snapshot;
+      if (Date.now() - new Date(row.synced_at as string).getTime() > SNAPSHOT_TTL_MS) {
+        // Stale: serve instantly, refresh daily copy in the background.
+        const job = syncSnapshot(token, db).catch((e) => console.error("background sync failed:", e?.message));
+        // deno-lint-ignore no-explicit-any
+        (globalThis as any).EdgeRuntime?.waitUntil?.(job);
+      }
+    } else {
+      snap = await syncSnapshot(token, db);
+    }
+    const payload = listTags ? { tags: snap.tags } : { highlights: snap.highlights };
+    return new Response(JSON.stringify(payload), {
       status: 200,
-      headers: {
-        ...corsHeaders,
-        "Content-Type": "application/json",
-        "Cache-Control": "public, max-age=3600",
-      },
+      headers: { ...corsHeaders, "Content-Type": "application/json", "Cache-Control": "public, max-age=3600" },
     });
   } catch (err) {
     const msg = err instanceof Error ? err.message : "Unknown error";
