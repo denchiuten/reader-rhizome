@@ -91,7 +91,20 @@ Deno.serve(async (req) => {
   let highlights: InputHighlight[] = [];
   try {
     const body = await req.json();
-    highlights = Array.isArray(body?.highlights) ? body.highlights : [];
+    if (!Array.isArray(body?.highlights) || body.highlights.length > 1000 ||
+      body.highlights.some((h: unknown) => {
+        if (!h || typeof h !== "object") return true;
+        const item = h as Record<string, unknown>;
+        return !Number.isSafeInteger(item.id) || (item.id as number) <= 0 ||
+          typeof item.text !== "string" || item.text.length > 60000 ||
+          (item.note != null && (typeof item.note !== "string" || item.note.length > 60000));
+      })) {
+      return new Response(JSON.stringify({ error: "Invalid highlights" }), {
+        status: 400,
+        headers: { ...corsHeaders, "Content-Type": "application/json" },
+      });
+    }
+    highlights = body.highlights;
   } catch {
     return new Response(JSON.stringify({ error: "Invalid JSON" }), {
       status: 400,
@@ -106,13 +119,10 @@ Deno.serve(async (req) => {
     });
   }
 
-  // Cap batch size from client to avoid runaway calls
-  if (highlights.length > 1000) highlights = highlights.slice(0, 1000);
-
   try {
     const supabase = createClient(supabaseUrl, serviceKey);
 
-    // Compute hashes and dedupe by id
+    // Cache identity comes from content, never a caller-selected highlight ID.
     const items = await Promise.all(
       highlights.map(async (h) => {
         const input = buildInputText(h);
@@ -121,32 +131,29 @@ Deno.serve(async (req) => {
       }),
     );
 
-    const ids = items.map((i) => i.id);
+    const uniqueItems = [...new Map(items.map((item) => [item.hash, item])).values()];
     const { data: existing, error: selErr } = await supabase
-      .from("highlight_embeddings")
-      .select("highlight_id, text_hash, embedding")
-      .in("highlight_id", ids);
+      .from("content_embeddings")
+      .select("text_hash, embedding")
+      .in("text_hash", uniqueItems.map((item) => item.hash));
     if (selErr) throw selErr;
 
-    const existingMap = new Map<number, { hash: string; embedding: number[] | string }>();
+    const existingMap = new Map<string, number[] | string>();
     for (const row of existing || []) {
-      existingMap.set(row.highlight_id as number, {
-        hash: row.text_hash as string,
-        embedding: row.embedding as unknown as number[] | string,
-      });
+      existingMap.set(row.text_hash as string, row.embedding as unknown as number[] | string);
     }
 
     const toEmbed: typeof items = [];
-    const result = new Map<number, number[]>();
+    const result = new Map<string, number[]>();
 
-    for (const it of items) {
-      const cached = existingMap.get(it.id);
-      if (cached && cached.hash === it.hash) {
+    for (const it of uniqueItems) {
+      const cached = existingMap.get(it.hash);
+      if (cached) {
         const vec =
-          typeof cached.embedding === "string"
-            ? (JSON.parse(cached.embedding) as number[])
-            : cached.embedding;
-        result.set(it.id, vec);
+          typeof cached === "string"
+            ? (JSON.parse(cached) as number[])
+            : cached;
+        result.set(it.hash, vec);
       } else {
         toEmbed.push(it);
       }
@@ -157,20 +164,19 @@ Deno.serve(async (req) => {
       const batch = toEmbed.slice(i, i + BATCH_SIZE);
       const vectors = await embedBatch(batch.map((b) => b.input), apiKey);
       const rows = batch.map((b, idx) => ({
-        highlight_id: b.id,
         text_hash: b.hash,
         // pgvector via PostgREST expects a string literal like "[0.1,0.2,...]"
         embedding: `[${vectors[idx].join(",")}]`,
         model: MODEL,
       }));
       const { error: upErr } = await supabase
-        .from("highlight_embeddings")
-        .upsert(rows, { onConflict: "highlight_id" });
+        .from("content_embeddings")
+        .upsert(rows, { onConflict: "text_hash", ignoreDuplicates: true });
       if (upErr) throw upErr;
-      batch.forEach((b, idx) => result.set(b.id, vectors[idx]));
+      batch.forEach((b, idx) => result.set(b.hash, vectors[idx]));
     }
 
-    const payload = items.map((it) => ({ id: it.id, vector: result.get(it.id) || [] }));
+    const payload = items.map((it) => ({ id: it.id, vector: result.get(it.hash) || [] }));
     return new Response(
       JSON.stringify({ embeddings: payload, model: MODEL, embedded: toEmbed.length }),
       {
@@ -185,7 +191,7 @@ Deno.serve(async (req) => {
         : JSON.stringify(err);
     console.error("embed-highlights error:", msg);
     return new Response(
-      JSON.stringify({ error: "Failed to compute embeddings", detail: msg.slice(0, 500) }),
+      JSON.stringify({ error: "Failed to compute embeddings" }),
       {
         status: 500,
         headers: { ...corsHeaders, "Content-Type": "application/json" },

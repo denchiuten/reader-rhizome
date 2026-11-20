@@ -38,6 +38,27 @@ export type Database = {
         }
         Relationships: []
       }
+      content_embeddings: {
+        Row: {
+          created_at: string
+          embedding: string
+          model: string
+          text_hash: string
+        }
+        Insert: {
+          created_at?: string
+          embedding: string
+          model: string
+          text_hash: string
+        }
+        Update: {
+          created_at?: string
+          embedding?: string
+          model?: string
+          text_hash?: string
+        }
+        Relationships: []
+      }
       highlight_embeddings: {
         Row: {
           created_at: string
