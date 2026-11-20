@@ -132,14 +132,19 @@ Deno.serve(async (req) => {
     );
 
     const uniqueItems = [...new Map(items.map((item) => [item.hash, item])).values()];
-    const { data: existing, error: selErr } = await supabase
-      .from("content_embeddings")
-      .select("text_hash, embedding")
-      .in("text_hash", uniqueItems.map((item) => item.hash));
-    if (selErr) throw selErr;
+    // Chunk lookups: hundreds of 64-char hashes in one ?in=() URL exceed limits (400 Bad Request).
+    const existing: Array<{ text_hash: string; embedding: unknown }> = [];
+    for (let i = 0; i < uniqueItems.length; i += 100) {
+      const { data, error: selErr } = await supabase
+        .from("content_embeddings")
+        .select("text_hash, embedding")
+        .in("text_hash", uniqueItems.slice(i, i + 100).map((item) => item.hash));
+      if (selErr) throw selErr;
+      existing.push(...(data || []));
+    }
 
     const existingMap = new Map<string, number[] | string>();
-    for (const row of existing || []) {
+    for (const row of existing) {
       existingMap.set(row.text_hash as string, row.embedding as unknown as number[] | string);
     }
 
