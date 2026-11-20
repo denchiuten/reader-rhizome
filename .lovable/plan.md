@@ -1,43 +1,23 @@
+# Explore Jev for connection scoring
 
-## Refactor HighlightGraph.tsx
+## Key constraint
+Jev scores state against questions (Score / Noul), many questions per request in parallel. But 500 highlights = ~125,000 cross-source pairs. Scoring every pair on every load is far slower and costlier than today's in-browser vector math, so dropping embeddings entirely is unlikely to win. The realistic win is **quality**, not speed: Jev judges whether two ideas genuinely connect, rather than just "sound similar".
 
-Split the 508-line component into focused modules. No behavior changes — pure structural refactor.
+## Approach: experiment first, then hybrid
+1. **Benchmark spike (no UI change)** — a new backend function `jev-score-pairs` takes a list of highlight pairs and asks Jev one Score question per pair ("How meaningfully do these two ideas connect?", 4 levels: unrelated → same topic only → related idea → strong shared insight/tension). Batch many pairs per request (fan-out). Measure latency, cost and agreement with current cosine scores on ~200 real pairs.
+2. **Hybrid if the spike looks good** — embeddings stay as a cheap candidate filter (e.g. top ~1,500 pairs at a lower cosine floor like 0.30); Jev re-scores only those; edges use the Jev score with a threshold. Results cached in a server-only table keyed by highlight content hashes, so each pair is scored once ever.
+3. **Pure-Jev option** — only revisit if the spike shows all-pairs is genuinely fast/cheap enough (unlikely at 125k pairs).
 
-### New files
+```text
+highlights ─► embeddings (cached) ─► top-N candidate pairs ─► Jev Score (cached) ─► graph edges
+                                   └─ fallback: cosine edges if Jev unavailable
+```
 
-1. **`src/components/graph/LinkTooltip.tsx`** (~60 lines)
-   - The hovered-link tooltip JSX (currently the IIFE at the bottom of the render)
-   - Props: `link: GraphLink`, `mousePos: {x,y}`, `width`, `height`
-   - Handles its own positioning math
+## Needed from you
+- A TypeSafe API key (stored as a backend secret `TYPESAFE_API_KEY`).
 
-2. **`src/components/graph/drawNode.ts`** (~80 lines)
-   - Pure function `drawNode(node, ctx, globalScale, opts)` containing the entire `nodeCanvasObject` body
-   - Opts: `{ selectedId, selectedPair, hoveredId, neighbors, labelNodeIds }`
-   - Keeps the word-wrapping label logic co-located
-
-3. **`src/components/graph/useGraphFocus.ts`** (~70 lines)
-   - Custom hook bundling the three effects:
-     - d3-force tuning (charge/link distance)
-     - `focusBookId` cluster auto-fit
-     - `selectedPair` auto-fit
-   - Signature: `useGraphFocus(fgRef, data, { focusBookId, selectedPair, width, height, onFocusHandled })`
-
-4. **`src/components/graph/buildGraphData.ts`** (~90 lines)
-   - Pure function `buildGraphData(highlights, connections, { simplified, maxNodes })` returning `{ data: GraphData, neighbors, highlightById }`
-   - Houses the big `useMemo` body + neighbor map construction
-
-5. **`src/components/graph/useGraphWheelPan.ts`** (~30 lines)
-   - The wheel-pan + mousemove tracking effect, returns `{ wrapperRef, mousePos }`
-
-### Updated file
-
-6. **`src/components/HighlightGraph.tsx`** (~150 lines)
-   - Imports the above
-   - Keeps: prop interface, `ForceGraph2D` JSX with link styling callbacks (small enough to stay inline), event handlers
-   - Becomes mostly orchestration
-
-### Notes
-
-- All exports stay typed against existing `GraphNode`/`GraphLink`/`GraphData` from `src/types/highlight.ts` — no type changes needed.
-- Link styling callbacks (`linkWidth`, `linkColor`, `linkLineDash`) stay inline since they close over `selectedPair`/`hoveredLink`/`selectedId` and aren't long enough to justify extraction.
-- No new dependencies, no behavior changes, no visual changes.
+## Technical details
+- Function follows existing rules: server-computed content-hash keys, insert-without-replace, cache never readable by browsers, generic errors, per-IP rate limit.
+- Client: `useReadwiseData` fetches Jev scores for candidate pairs after embeddings load; falls back to cosine edges on failure. Edge tooltip shows the Jev rating instead of similarity %.
+- Check TypeSafe request limits (`/api/errors`) to size batches.
+- Step 1 ships only as a benchmark report to you; steps 2+ wait on your go-ahead.
