@@ -1,5 +1,7 @@
 # Architecture rules
 
+- Serve Reading History at `/` and `/reading`, and the highlight graph at `/graph`; book highlight links target `/graph` so the home page opens the reading dashboard.
+
 - Use the shared AppHeader on both reading and graph pages so primary navigation stays in the same position; keep graph-specific controls below it.
 
 - Keep connection summaries and highlight embeddings server-only: browsers request individual results through edge functions, never query the cache tables directly, so the public graph does not expose the full stored history.

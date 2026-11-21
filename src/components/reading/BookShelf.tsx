@@ -31,7 +31,7 @@ export function BookShelf({ title, books, current = false }: { title: string; bo
       <DialogHeader><DialogTitle className="pr-5 leading-snug">{selected.title}</DialogTitle></DialogHeader>
       <div className="flex items-start gap-5"><div className="w-28 shrink-0"><Cover book={selected} /></div><div className="min-w-0 space-y-2 text-sm"><p>{selected.author}</p><p className="capitalize text-muted-foreground">{selected.status.replace(/_/g, ' ')}</p>{selected.rating !== null && <p className="flex items-center gap-1"><Star className="h-4 w-4 text-primary" />{selected.rating} / 5</p>}{selected.pages && <p className="text-muted-foreground">{selected.pages} pages</p>}{selected.format && <p className="text-muted-foreground">{selected.format}</p>}{selected.finished_reading_at && <p className="text-muted-foreground">Finished {new Date(selected.finished_reading_at).toLocaleDateString()}</p>}</div></div>
       {selected.review && <div><h3 className="mb-2 text-sm font-semibold">Dennis’ review</h3><Markdown className="text-sm">{selected.review}</Markdown></div>}
-      {selected.highlightBookId !== null && <Button asChild variant="outline"><Link to={`/?source=${selected.highlightBookId}`}><Network />View highlights</Link></Button>}
+      {selected.highlightBookId !== null && <Button asChild variant="outline"><Link to={`/graph?source=${selected.highlightBookId}`}><Network />View highlights</Link></Button>}
     </>}</DialogContent></Dialog>
   </section>;
 }
