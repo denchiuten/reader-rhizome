@@ -1,6 +1,6 @@
 import { useEffect, useMemo, useRef, useState } from "react";
 import { useSearchParams } from 'react-router-dom';
-import { ReadingNavigation } from '@/components/ReadingNavigation';
+import { AppHeader } from '@/components/AppHeader';
 import { AlertTriangle, Info, Loader2, RefreshCw } from "lucide-react";
 import { Button } from "@/components/ui/button";
 import { Sheet, SheetContent } from "@/components/ui/sheet";
@@ -92,7 +92,8 @@ const Index = () => {
 
   return (
     <div className="flex h-screen w-screen flex-col overflow-hidden bg-background">
-      <header className="flex flex-shrink-0 items-center justify-between gap-3 border-b border-border bg-card/50 px-4 py-3 backdrop-blur sm:px-6">
+      <AppHeader />
+      <section aria-label="Graph controls" className="flex flex-shrink-0 items-center justify-between gap-3 border-b border-border bg-card/50 px-4 py-3 backdrop-blur sm:px-6">
         <div className="min-w-0">
           <div className="flex items-center gap-1.5">
             <h1 className="text-base font-semibold tracking-tight text-foreground sm:text-lg">
@@ -122,7 +123,6 @@ const Index = () => {
           </p>
           <div className="mt-1">{headerStats}</div>
           <div className="mt-2 flex flex-wrap items-center gap-2">
-            <ReadingNavigation />
             <CategoryFilter
               selected={categories}
               onChange={setCategories}
@@ -146,7 +146,7 @@ const Index = () => {
           <RefreshCw className={`h-3.5 w-3.5 ${loading ? "animate-spin" : ""}`} />
           <span className="hidden sm:inline">Refresh</span>
         </Button>
-      </header>
+      </section>
 
       <main className="flex min-h-0 min-w-0 flex-1 overflow-hidden">
         <div ref={containerRef} className="relative min-h-0 min-w-0 flex-1 overflow-hidden">

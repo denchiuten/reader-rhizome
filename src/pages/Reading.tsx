@@ -1,6 +1,6 @@
 import { useMemo, useState } from 'react';
 import { BookCheck, Loader2, Star, Target } from 'lucide-react';
-import { ReadingNavigation } from '@/components/ReadingNavigation';
+import { AppHeader } from '@/components/AppHeader';
 import { ReadingCharts } from '@/components/reading/ReadingCharts';
 import { BookShelf } from '@/components/reading/BookShelf';
 import { Button } from '@/components/ui/button';
@@ -20,7 +20,7 @@ export default function Reading() {
   const years = Array.from({ length: currentYear - Math.max(2000, earliest) + 1 }, (_, i) => currentYear - i);
   const goal = data?.summary.target_books_read;
   return <div className="min-h-screen bg-background">
-    <header className="border-b border-border bg-card/50"><div className="mx-auto flex max-w-7xl flex-wrap items-center justify-between gap-3 px-5 py-4 sm:px-8"><span className="text-sm font-semibold">Dennis’ Readwise</span><ReadingNavigation /></div></header>
+    <AppHeader />
     <main className="mx-auto max-w-7xl px-5 pb-12 pt-8 sm:px-8 sm:pt-12">
       <div className="mb-8 flex flex-wrap items-end justify-between gap-5"><div><p className="mb-2 text-xs font-medium uppercase text-muted-foreground">Dennis Chiuten · Reading journal</p><h1 className="text-3xl font-semibold sm:text-4xl">A life in books</h1><p className="mt-3 text-sm text-muted-foreground">Dennis’ reading history, one chapter at a time.</p></div><Select value={String(year)} onValueChange={v => setYear(Number(v))}><SelectTrigger className="w-28" aria-label="Reading year"><SelectValue /></SelectTrigger><SelectContent>{years.map(y => <SelectItem key={y} value={String(y)}>{y}</SelectItem>)}</SelectContent></Select></div>
       {isLoading ? <div className="flex min-h-80 items-center justify-center gap-3 text-muted-foreground"><Loader2 className="h-5 w-5 animate-spin" />Loading Dennis’ reading history…</div> : error || !data ? <div role="alert" className="space-y-4 border-y border-border py-12"><h2 className="font-medium">Couldn't load reading history</h2><p className="text-sm text-muted-foreground">{error?.message}</p><Button variant="outline" onClick={() => refetch()}>Try again</Button></div> : <>
