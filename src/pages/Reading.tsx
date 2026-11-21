@@ -1,7 +1,7 @@
 import { useMemo, useState } from 'react';
 import { BookCheck, CalendarDays, Clock, Loader2, Star, Target } from 'lucide-react';
 import { ReadingNavigation } from '@/components/ReadingNavigation';
-import { ReadingCharts, ReadingActivity } from '@/components/reading/ReadingCharts';
+import { ReadingCharts } from '@/components/reading/ReadingCharts';
 import { BookShelf } from '@/components/reading/BookShelf';
 import { Button } from '@/components/ui/button';
 import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from '@/components/ui/select';
@@ -29,7 +29,6 @@ export default function Reading() {
         </div>
         {goal && <div className="mb-8 flex flex-wrap items-center gap-x-6 gap-y-3"><div className="flex items-center gap-2 text-sm"><Target className="h-4 w-4 text-primary" /><span>{year} reading goal</span><strong>{data.summary.books_finished} / {goal}</strong></div><Progress className="h-1.5 min-w-32 max-w-xs flex-1" value={Math.min(100, data.summary.books_finished / goal * 100)} /><span className="text-xs text-muted-foreground">{Math.round(data.summary.books_finished / goal * 100)}%</span></div>}
         <ReadingCharts books={data.books} year={year} />
-        <ReadingActivity days={data.days} year={year} />
         <BookShelf title="Currently reading" books={data.books.filter(b => b.status === 'currently_reading')} current />
         <BookShelf title={`Finished in ${year}`} books={finished} />
         <footer className="mt-6 flex flex-wrap items-center justify-between gap-3 text-xs text-muted-foreground"><span>Updated {new Date(data.syncedAt).toLocaleDateString()} · Synced daily with Readwise</span><div className="flex gap-4"><a href="https://www.linkedin.com/in/dchiuten/" target="_blank" rel="noreferrer">LinkedIn</a><a href="https://github.com/denchiuten" target="_blank" rel="noreferrer">GitHub</a></div></footer>
