@@ -13,7 +13,7 @@ const config = {
 
 export function ReadingCharts({ books, year }: { books: ReadingBook[]; year: number }) {
   const [period, setPeriod] = useState('monthly');
-  const [mode, setMode] = useState<'format' | 'length' | 'rating' | 'tags' | 'genre'>('genre');
+  const [mode, setMode] = useState<'length' | 'rating' | 'genre'>('genre');
   const years = [...new Set([year, ...books.flatMap(b => b.finished_reading_at ? [Number(b.finished_reading_at.slice(0, 4))] : [])])].sort((a, b) => a - b);
   const chart = period === 'monthly' ? monthlyCompletions(books, year) : years.map(y => ({ name: String(y), books: finishedInYear(books, y).length }));
   const breakdown = readingBreakdown(finishedInYear(books, year), mode);
@@ -33,7 +33,7 @@ export function ReadingCharts({ books, year }: { books: ReadingBook[]; year: num
       {period === 'monthly' && <div className="mt-3 flex justify-center gap-5 text-xs text-muted-foreground"><span className="flex items-center gap-2"><i className="reading-key reading-key-current" />{year}</span><span className="flex items-center gap-2"><i className="reading-key reading-key-previous" />{year - 1}</span></div>}
     </section>
     <section className="min-w-0 lg:border-l lg:border-border lg:pl-8" aria-labelledby="breakdown-heading">
-      <div className="mb-5 flex flex-wrap items-center justify-between gap-3"><h2 id="breakdown-heading" className="text-lg font-semibold">The year's mix</h2><Select value={mode} onValueChange={v => setMode(v as typeof mode)}><SelectTrigger className="w-36" aria-label="Reading breakdown"><SelectValue /></SelectTrigger><SelectContent><SelectItem value="genre">Genre</SelectItem><SelectItem value="format">Format</SelectItem><SelectItem value="length">Book length</SelectItem><SelectItem value="rating">Rating</SelectItem><SelectItem value="tags">Document tags</SelectItem></SelectContent></Select></div>
+      <div className="mb-5 flex flex-wrap items-center justify-between gap-3"><h2 id="breakdown-heading" className="text-lg font-semibold">The year's mix</h2><Select value={mode} onValueChange={v => setMode(v as typeof mode)}><SelectTrigger className="w-36" aria-label="Reading breakdown"><SelectValue /></SelectTrigger><SelectContent><SelectItem value="genre">Genre</SelectItem><SelectItem value="length">Book length</SelectItem><SelectItem value="rating">Rating</SelectItem></SelectContent></Select></div>
       {breakdown.length ? <ChartContainer config={config} className={breakdown.length > 8 ? 'h-96 w-full' : 'h-64 w-full'}><BarChart data={breakdown} layout="vertical" accessibilityLayer margin={{ left: 0, right: 20 }}><XAxis type="number" hide allowDecimals={false} /><YAxis type="category" dataKey="name" width={150} axisLine={false} tickLine={false} tick={{ fontSize: 11 }} interval={0} /><ChartTooltip content={<ChartTooltipContent />} /><Bar dataKey="books" fill="var(--color-books)" radius={[0, 3, 3, 0]} barSize={22} /></BarChart></ChartContainer> : <p className="py-20 text-center text-sm text-muted-foreground">No finished books in {year}.</p>}
       {mode === 'genre' && <p className="mt-3 text-xs text-muted-foreground">Genres from Open Library catalog subjects; unmatched books are unclassified.</p>}
     </section>
