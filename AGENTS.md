@@ -1,5 +1,7 @@
 # Architecture rules
 
+- Keep page-count chart controls in a focused reading chart module and aggregate totals in the pure reading helpers so monthly, yearly, and headline values share the same finish-date rules.
+
 - Serve Reading History at `/` and `/reading`, and the highlight graph at `/graph`; book highlight links target `/graph` so the home page opens the reading dashboard.
 
 - Use the shared AppHeader on both reading and graph pages so primary navigation stays in the same position; keep graph-specific controls below it.

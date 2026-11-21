@@ -5,8 +5,27 @@ export function finishedInYear(books: ReadingBook[], year: number) {
 }
 
 export function pagesInFinishedBooks(books: ReadingBook[], year: number) {
-  return finishedInYear(books, year).reduce((total, book) =>
+  return sumPages(finishedInYear(books, year));
+}
+
+function sumPages(books: ReadingBook[]) {
+  return books.reduce((total, book) =>
     total + (book.pages !== null && Number.isFinite(book.pages) && book.pages > 0 ? book.pages : 0), 0);
+}
+
+export function monthlyPagesRead(books: ReadingBook[], year: number) {
+  const current = finishedInYear(books, year);
+  const previous = finishedInYear(books, year - 1);
+  return Array.from({ length: 12 }, (_, month) => ({
+    name: new Date(Date.UTC(year, month, 1)).toLocaleString('en', { month: 'short', timeZone: 'UTC' }),
+    pages: sumPages(current.filter(b => Number(b.finished_reading_at?.slice(5, 7)) === month + 1)),
+    previous: sumPages(previous.filter(b => Number(b.finished_reading_at?.slice(5, 7)) === month + 1)),
+  }));
+}
+
+export function yearlyPagesRead(books: ReadingBook[], year: number) {
+  const years = [...new Set([year, ...books.flatMap(b => b.status === 'finished' && b.finished_reading_at ? [Number(b.finished_reading_at.slice(0, 4))] : [])])].sort((a, b) => a - b);
+  return years.map(y => ({ name: String(y), pages: pagesInFinishedBooks(books, y) }));
 }
 
 export function monthlyCompletions(books: ReadingBook[], year: number) {

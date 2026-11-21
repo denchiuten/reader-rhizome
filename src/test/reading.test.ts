@@ -1,11 +1,24 @@
 import { describe, expect, it } from 'vitest';
-import { monthlyCompletions, finishedInYear, pagesInFinishedBooks, readingBreakdown } from '@/lib/reading';
+import { monthlyCompletions, finishedInYear, pagesInFinishedBooks, monthlyPagesRead, yearlyPagesRead, readingBreakdown } from '@/lib/reading';
 import { normalizeBook } from '../../supabase/functions/readwise-books/normalize';
 import { genreFromSubjects } from '../../supabase/functions/readwise-books/genres';
 import type { ReadingBook } from '@/types/reading';
 
 const book = (overrides = {}): ReadingBook => ({ id: 1, title: 'Example', author: null, status: 'finished', progress: 1, started_reading_at: null, finished_reading_at: '2026-01-31T12:00:00Z', rating: 4.25, review: null, pages: 200, format: 'Ebook', cover: null, tags: [], highlightBookId: null, ...overrides });
 describe('Reading statistics', () => {
+  it('assigns page totals to the finish month with a previous-year comparison', () => {
+    const books = [book({ pages: 200 }), book({ pages: 350 }), book({ pages: null }), book({ pages: 800, status: 'currently_reading' }), book({ pages: 120, finished_reading_at: '2025-01-01T00:00:00Z' }), book({ pages: 300, finished_reading_at: '2026-02-01T00:00:00Z' })];
+    const months = monthlyPagesRead(books, 2026);
+    expect(months).toHaveLength(12);
+    expect(months[0]).toEqual({ name: 'Jan', pages: 550, previous: 120 });
+    expect(months[1]).toEqual({ name: 'Feb', pages: 300, previous: 0 });
+    expect(months.reduce((sum, month) => sum + month.pages, 0)).toBe(850);
+  });
+  it('groups pages by finish year and includes an empty selected year', () => {
+    expect(yearlyPagesRead([book({ pages: 200 }), book({ pages: null }), book({ pages: 120, finished_reading_at: '2025-12-31T00:00:00Z' }), book({ pages: 800, status: 'currently_reading' })], 2027)).toEqual([
+      { name: '2025', pages: 120 }, { name: '2026', pages: 200 }, { name: '2027', pages: 0 },
+    ]);
+  });
   it('totals pages only for books finished in the selected year', () => {
     expect(pagesInFinishedBooks([
       book({ pages: 200 }), book({ pages: 350 }),
