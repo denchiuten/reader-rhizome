@@ -4,7 +4,7 @@ import { ChartContainer, ChartTooltip, ChartTooltipContent } from '@/components/
 import { Tabs, TabsList, TabsTrigger } from '@/components/ui/tabs';
 import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from '@/components/ui/select';
 import { finishedInYear, monthlyCompletions, readingBreakdown } from '@/lib/reading';
-import type { ReadingBook, ReadingDay } from '@/types/reading';
+import type { ReadingBook } from '@/types/reading';
 
 const config = {
   books: { label: 'Books finished', color: 'hsl(var(--rp-foam))' },
@@ -38,26 +38,4 @@ export function ReadingCharts({ books, year }: { books: ReadingBook[]; year: num
       {mode === 'genre' && <p className="mt-3 text-xs text-muted-foreground">Genres from Open Library catalog subjects; unmatched books are unclassified.</p>}
     </section>
   </div>;
-}
-
-export function ReadingActivity({ days, year }: { days: ReadingDay[]; year: number }) {
-  const map = new Map(days.map(d => [d.date, d]));
-  const start = new Date(Date.UTC(year, 0, 1));
-  const end = new Date(Date.UTC(year + 1, 0, 1));
-  const count = (end.getTime() - start.getTime()) / 86400000;
-  const cells: (string | null)[] = [...Array.from({ length: start.getUTCDay() }, () => null), ...Array.from({ length: count }, (_, i) => new Date(start.getTime() + i * 86400000).toISOString().slice(0, 10))];
-  const active = days.filter(d => d.session_count > 0).length;
-  return <section className="border-b border-border py-8" aria-labelledby="activity-heading">
-    <div className="mb-5 flex flex-wrap items-baseline justify-between gap-2"><h2 id="activity-heading" className="text-lg font-semibold">A year of reading</h2><p className="text-sm text-muted-foreground">{active} active days · {year}</p></div>
-    <div className="overflow-x-auto pb-2"><div className="min-w-[700px]">
-      <div className="mb-2 flex justify-around text-xs text-muted-foreground">{Array.from({ length: 12 }, (_, m) => <span key={m}>{new Date(Date.UTC(year, m, 1)).toLocaleString('en', { month: 'short', timeZone: 'UTC' })}</span>)}</div>
-      <div className="reading-activity">{cells.map((date: string | null, i) => {
-        const d = date ? map.get(date) : null;
-        const minutes = (d?.total_time_seconds || 0) / 60;
-        const level = !d?.session_count ? 0 : minutes < 15 ? 1 : minutes < 30 ? 2 : minutes < 60 ? 3 : 4;
-        return <div key={date || `blank-${i}`} className={date ? `reading-day reading-level-${level}` : 'reading-day invisible'} title={date ? `${date}: ${Math.round(minutes)} min · ${d?.session_count || 0} sessions` : undefined} aria-label={date ? `${date}: ${Math.round(minutes)} reading minutes` : undefined} />;
-      })}</div>
-    </div></div>
-    <div className="mt-3 flex items-center justify-end gap-1.5 text-xs text-muted-foreground"><span className="mr-1">Less</span>{[0, 1, 2, 3, 4].map(l => <i key={l} className={`reading-day reading-level-${l}`} />)}<span className="ml-1">More</span></div>
-  </section>;
 }

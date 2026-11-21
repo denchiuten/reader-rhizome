@@ -1,5 +1,5 @@
 import { useMemo, useState } from 'react';
-import { BookCheck, CalendarDays, Clock, Loader2, Star, Target } from 'lucide-react';
+import { BookCheck, Loader2, Star, Target } from 'lucide-react';
 import { ReadingNavigation } from '@/components/ReadingNavigation';
 import { ReadingCharts } from '@/components/reading/ReadingCharts';
 import { BookShelf } from '@/components/reading/BookShelf';
@@ -24,8 +24,8 @@ export default function Reading() {
     <main className="mx-auto max-w-7xl px-5 pb-12 pt-8 sm:px-8 sm:pt-12">
       <div className="mb-8 flex flex-wrap items-end justify-between gap-5"><div><p className="mb-2 text-xs font-medium uppercase text-muted-foreground">Dennis Chiuten · Reading journal</p><h1 className="text-3xl font-semibold sm:text-4xl">A life in books</h1><p className="mt-3 text-sm text-muted-foreground">Dennis’ reading history, one chapter at a time.</p></div><Select value={String(year)} onValueChange={v => setYear(Number(v))}><SelectTrigger className="w-28" aria-label="Reading year"><SelectValue /></SelectTrigger><SelectContent>{years.map(y => <SelectItem key={y} value={String(y)}>{y}</SelectItem>)}</SelectContent></Select></div>
       {isLoading ? <div className="flex min-h-80 items-center justify-center gap-3 text-muted-foreground"><Loader2 className="h-5 w-5 animate-spin" />Loading Dennis’ reading history…</div> : error || !data ? <div role="alert" className="space-y-4 border-y border-border py-12"><h2 className="font-medium">Couldn't load reading history</h2><p className="text-sm text-muted-foreground">{error?.message}</p><Button variant="outline" onClick={() => refetch()}>Try again</Button></div> : <>
-        <div className="mb-8 grid grid-cols-2 gap-x-5 gap-y-7 md:grid-cols-4">
-          {[{ icon: BookCheck, label: 'Books finished', value: data.summary.books_finished }, { icon: CalendarDays, label: 'Reading days', value: data.summary.reading_days }, { icon: Clock, label: 'Hours reading', value: (Math.round(data.summary.total_time_seconds / 360) / 10).toLocaleString() }, { icon: Star, label: 'Average rating', value: average }].map(m => <div key={m.label} className="border-l-2 border-border pl-4"><p className="mb-2 flex items-center gap-2 text-xs text-muted-foreground"><m.icon className="h-3.5 w-3.5" />{m.label}</p><p className="text-3xl font-medium tabular-nums">{m.value}</p></div>)}
+        <div className="mb-8 grid grid-cols-2 gap-x-5 gap-y-7">
+          {[{ icon: BookCheck, label: 'Books finished', value: data.summary.books_finished }, { icon: Star, label: 'Average rating', value: average }].map(m => <div key={m.label} className="border-l-2 border-border pl-4"><p className="mb-2 flex items-center gap-2 text-xs text-muted-foreground"><m.icon className="h-3.5 w-3.5" />{m.label}</p><p className="text-3xl font-medium tabular-nums">{m.value}</p></div>)}
         </div>
         {goal && <div className="mb-8 flex flex-wrap items-center gap-x-6 gap-y-3"><div className="flex items-center gap-2 text-sm"><Target className="h-4 w-4 text-primary" /><span>{year} reading goal</span><strong>{data.summary.books_finished} / {goal}</strong></div><Progress className="h-1.5 min-w-32 max-w-xs flex-1" value={Math.min(100, data.summary.books_finished / goal * 100)} /><span className="text-xs text-muted-foreground">{Math.round(data.summary.books_finished / goal * 100)}%</span></div>}
         <ReadingCharts books={data.books} year={year} />
