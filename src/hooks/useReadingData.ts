@@ -20,8 +20,11 @@ export function useRefreshReadingData(year: number) {
   return useMutation({
     mutationFn: () => fetchReadingData(year, true),
     onSuccess: async data => {
-      await queryClient.invalidateQueries({ queryKey: ['reading'], refetchType: 'none' });
       queryClient.setQueryData(['reading', data.year], data);
+      await queryClient.invalidateQueries({
+        queryKey: ['reading'],
+        predicate: query => query.queryKey[1] !== data.year,
+      });
     },
   });
 }

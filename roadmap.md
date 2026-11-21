@@ -1,4 +1,5 @@
 # Reading dashboard
+- [x] Sweep shelf consistency across reading routes, year changes, details, charts, and background updates.
 - [x] Refresh the Readwise shelf and verify removed books disappear; allow a bounded manual refresh.
 - [x] Rename the page total to Pages read and add verified monthly/yearly page charts.
 - [x] Fetch and cache book history, yearly statistics, and daily reading activity.
