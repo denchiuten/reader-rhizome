@@ -1,4 +1,6 @@
 import { useEffect, useMemo, useRef, useState } from "react";
+import { useSearchParams } from 'react-router-dom';
+import { ReadingNavigation } from '@/components/ReadingNavigation';
 import { AlertTriangle, Info, Loader2, RefreshCw } from "lucide-react";
 import { Button } from "@/components/ui/button";
 import { Sheet, SheetContent } from "@/components/ui/sheet";
@@ -41,6 +43,11 @@ const Index = () => {
   const { width, height } = useElementSize(containerRef);
   const [selection, setSelection] = useState<Selection>(null);
   const [focusBookId, setFocusBookId] = useState<number | null>(null);
+  const [searchParams] = useSearchParams();
+  useEffect(() => {
+    const source = Number(searchParams.get('source'));
+    if (!loading && source > 0 && highlights.some(h => h.book.id === source)) setFocusBookId(source);
+  }, [searchParams, loading, highlights]);
 
   const selectedHighlight = selection?.kind === "highlight" ? selection.highlight : null;
   const selectHighlight = (h: Highlight | null) =>
@@ -115,6 +122,7 @@ const Index = () => {
           </p>
           <div className="mt-1">{headerStats}</div>
           <div className="mt-2 flex flex-wrap items-center gap-2">
+            <ReadingNavigation />
             <CategoryFilter
               selected={categories}
               onChange={setCategories}

@@ -86,3 +86,16 @@
     font-feature-settings: "ss01", "cv11";
   }
 }
+
+.reading-key { display: inline-block; width: 8px; height: 8px; border-radius: 2px; }
+.reading-key-current { background: hsl(var(--rp-foam)); }
+.reading-key-previous { background: hsl(var(--rp-iris)); }
+.reading-activity { display: grid; grid-auto-flow: column; grid-template-rows: repeat(7, 12px); grid-auto-columns: minmax(10px, 1fr); gap: 3px; }
+.reading-day { display: block; width: 100%; height: 12px; border-radius: 2px; }
+.reading-level-0 { background: hsl(var(--muted)); }
+.reading-level-1 { background: hsl(var(--rp-pine)); }
+.reading-level-2 { background: hsl(var(--rp-foam) / .5); }
+.reading-level-3 { background: hsl(var(--rp-foam) / .75); }
+.reading-level-4 { background: hsl(var(--rp-foam)); }
+.reading-cover { box-shadow: 0 4px 16px hsl(var(--background) / .4); }
+.reading-day:is(i) { width: 12px; }

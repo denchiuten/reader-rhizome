@@ -86,6 +86,24 @@ export type Database = {
         }
         Relationships: []
       }
+      reading_snapshots: {
+        Row: {
+          kind: string
+          payload: Json
+          synced_at: string
+        }
+        Insert: {
+          kind: string
+          payload: Json
+          synced_at?: string
+        }
+        Update: {
+          kind?: string
+          payload?: Json
+          synced_at?: string
+        }
+        Relationships: []
+      }
       readwise_snapshots: {
         Row: {
           kind: string

@@ -3,3 +3,6 @@
 - Keep connection summaries and highlight embeddings server-only: browsers request individual results through edge functions, never query the cache tables directly, so the public graph does not expose the full stored history.
 - Key embedding cache entries by server-computed model/content hashes and insert without replacing existing entries; caller-provided highlight IDs are response labels only, preventing cache tampering.- Serve highlights from the server-only `readwise_snapshots` copy; refresh it in the background when older than 24h, so visitors never wait on Readwise pagination.
 - Keep `.env` tracked in git: it holds only publishable Cloud keys and the published build needs it (untracking it broke the live site).
+- Serve the reading dashboard through server-only reading snapshots with a managed daily authenticated callback; exclude private/deleted books and preserve provider fields rather than inventing genre or progress data.
+- Keep reading calculations in a pure module and match Books API records to highlight sources by normalized titles, never by IDs from different APIs.
+- Enrich reading genres from batched public ISBN catalog lookups cached per year; leave unmatched subjects unclassified and never send account credentials to the catalog.
