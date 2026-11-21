@@ -4,9 +4,9 @@ import { z } from 'npm:zod@3';
 import { authenticateCronRequest } from '../_shared/cron-auth.ts';
 import { normalizeBook } from './normalize.ts';
 import { catalogGenres } from './genres.ts';
+import { shouldRefreshReading } from './freshness.ts';
 
 const BASE = 'https://readwise.io/books/api/v1/';
-const TTL = 24 * 60 * 60 * 1000;
 const jobs = new Map<string, Promise<any>>();
 const json = (data: unknown, status = 200) => new Response(JSON.stringify(data), {
   status, headers: { ...corsHeaders, 'Content-Type': 'application/json' },
@@ -75,7 +75,7 @@ Deno.serve(async req => {
   if (req.method === 'OPTIONS') return new Response('ok', { headers: corsHeaders });
   if (req.method !== 'POST') return json({ error: 'Method not allowed' }, 405);
   const currentYear = new Date().getUTCFullYear();
-  const parsed = z.object({ year: z.number().int().min(2000).max(currentYear).optional(), sync: z.boolean().optional() }).strict().safeParse(await req.json().catch(() => null));
+  const parsed = z.object({ year: z.number().int().min(2000).max(currentYear).optional(), sync: z.boolean().optional(), refresh: z.boolean().optional() }).strict().safeParse(await req.json().catch(() => null));
   if (!parsed.success) return json({ error: 'Invalid reading request' }, 400);
   if (parsed.data.sync) {
     const denied = authenticateCronRequest(req);
@@ -98,11 +98,12 @@ Deno.serve(async req => {
       }
       return json({ synced: true, year: currentYear });
     }
-    async function saved(kind: string, task: () => Promise<any>) {
+    async function saved(kind: string, task: () => Promise<any>, manual = false) {
       const { data, error } = await db.from('reading_snapshots').select('payload,synced_at').eq('kind', kind).maybeSingle();
       if (error) throw error;
       if (data) {
-        if (Date.now() - new Date(data.synced_at).getTime() > TTL) {
+        if (shouldRefreshReading(data.synced_at, manual)) {
+          if (manual) return sync(kind, task, db);
           const job = sync(kind, task, db).catch(e => console.error('Background reading sync failed', e.message));
           (globalThis as any).EdgeRuntime?.waitUntil(job);
         }
@@ -111,8 +112,8 @@ Deno.serve(async req => {
       return sync(kind, task, db);
     }
     const [books, stats] = await Promise.all([
-      saved('library', () => library(token, db)),
-      saved(`year:${year}`, () => annual(year, token)),
+      saved('library', () => library(token, db), parsed.data.refresh),
+      saved(`year:${year}`, () => annual(year, token), parsed.data.refresh),
     ]);
     const genres = await saved(`genres:${year}`, () => catalogGenres(books.payload.books, year));
     const enriched = books.payload.books.map((b: any) => ({ ...b, genre: genres.payload[b.id]?.genre || null, cover: b.cover || genres.payload[b.id]?.cover || null, fallbackCover: genres.payload[b.id]?.cover || null }));

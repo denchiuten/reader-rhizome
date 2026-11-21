@@ -1,18 +1,19 @@
 import { useMemo, useState } from 'react';
-import { BookCheck, FileText, Loader2, Star, Target } from 'lucide-react';
+import { BookCheck, FileText, Loader2, RefreshCw, Star, Target } from 'lucide-react';
 import { AppHeader } from '@/components/AppHeader';
 import { ReadingCharts } from '@/components/reading/ReadingCharts';
 import { BookShelf } from '@/components/reading/BookShelf';
 import { Button } from '@/components/ui/button';
 import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from '@/components/ui/select';
 import { Progress } from '@/components/ui/progress';
-import { useReadingData } from '@/hooks/useReadingData';
+import { useReadingData, useRefreshReadingData } from '@/hooks/useReadingData';
 import { finishedInYear, pagesInFinishedBooks } from '@/lib/reading';
 
 export default function Reading() {
   const currentYear = new Date().getFullYear();
   const [year, setYear] = useState(currentYear);
   const { data, isLoading, error, refetch } = useReadingData(year);
+  const refresh = useRefreshReadingData(year);
   const finished = useMemo(() => finishedInYear(data?.books || [], year), [data, year]);
   const pages = useMemo(() => pagesInFinishedBooks(data?.books || [], year), [data, year]);
   const rated = finished.filter(b => b.rating !== null);
@@ -32,7 +33,8 @@ export default function Reading() {
         <ReadingCharts books={data.books} year={year} />
         <BookShelf title="Currently reading" books={data.books.filter(b => b.status === 'currently_reading')} current />
         <BookShelf title={`Finished in ${year}`} books={finished} />
-        <footer className="mt-6 flex flex-wrap items-center justify-between gap-3 text-xs text-muted-foreground"><span>Updated {new Date(data.syncedAt).toLocaleDateString()} · Synced daily with Readwise</span><div className="flex gap-4"><a href="https://www.linkedin.com/in/dchiuten/" target="_blank" rel="noreferrer">LinkedIn</a><a href="https://github.com/denchiuten" target="_blank" rel="noreferrer">GitHub</a></div></footer>
+        <footer className="mt-6 flex flex-wrap items-center justify-between gap-3 text-xs text-muted-foreground"><div className="flex flex-wrap items-center gap-3"><span>Updated {new Date(data.syncedAt).toLocaleString()} · Synced daily with Readwise</span><Button variant="ghost" size="sm" disabled={refresh.isPending} onClick={() => refresh.mutate()}>{refresh.isPending ? <Loader2 className="h-3.5 w-3.5 animate-spin" /> : <RefreshCw className="h-3.5 w-3.5" />}{refresh.isPending ? 'Refreshing…' : 'Refresh from Readwise'}</Button></div><div className="flex gap-4"><a href="https://www.linkedin.com/in/dchiuten/" target="_blank" rel="noreferrer">LinkedIn</a><a href="https://github.com/denchiuten" target="_blank" rel="noreferrer">GitHub</a></div></footer>
+        {refresh.error && <p role="alert" className="mt-3 text-sm text-destructive">Couldn't refresh from Readwise. Your saved reading history is still available. Please try again shortly.</p>}
       </>}
     </main>
   </div>;
