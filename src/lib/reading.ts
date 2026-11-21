@@ -4,6 +4,11 @@ export function finishedInYear(books: ReadingBook[], year: number) {
   return books.filter(b => b.status === 'finished' && b.finished_reading_at?.startsWith(`${year}-`));
 }
 
+export function pagesInFinishedBooks(books: ReadingBook[], year: number) {
+  return finishedInYear(books, year).reduce((total, book) =>
+    total + (book.pages !== null && Number.isFinite(book.pages) && book.pages > 0 ? book.pages : 0), 0);
+}
+
 export function monthlyCompletions(books: ReadingBook[], year: number) {
   const finished = finishedInYear(books, year);
   return Array.from({ length: 12 }, (_, month) => ({
